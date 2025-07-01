@@ -1,0 +1,26 @@
+# Сессии Telegram
+*.session
+*.session-journal
+
+# Переменные окружения
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Логи
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp files
+temp/
+tmp/

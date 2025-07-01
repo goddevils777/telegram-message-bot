@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Message Hunter - Поиск сообщений</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .usage-stats {
+            background: rgba(255,255,255,0.9);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .payment-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+        }
+        
+        .payment-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+        }
+        
+        .payment-title {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .payment-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+        
+        .wallet-address {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: monospace;
+            word-break: break-all;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #0088cc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .logout-btn {
+            background: #dc3545;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        
+        .logout-btn:hover {
+            background: #c82333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        
+        .tabs {
+            display: flex;
+            background: white;
+            border-radius: 15px 15px 0 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            background: #f8f9fa;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            background: #0088cc;
+            color: white;
+        }
+        
+        .tab:hover:not(.active) {
+            background: #e9ecef;
+        }
+        
+        .tab-content {
+            background: white;
+            border-radius: 0 0 15px 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            padding: 30px;
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .groups-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 2px solid #e1e8ed;
+            border-radius: 10px;
+            padding: 15px;
+        }
+        
+        .group-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #f1f3f4;
+            transition: background 0.2s;
+        }
+        
+        .group-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .group-item:last-child {
+            border-bottom: none;
+        }
+        
+        .group-checkbox {
+            margin-right: 15px;
+            width: 18px;
+            height: 18px;
+        }
+        
+        .group-info {
+            flex: 1;
+        }
+        
+        .group-title {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .group-type {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        
+        .groups-actions {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .select-btn {
+            padding: 10px 20px;
+            border: 2px solid #0088cc;
+            background: transparent;
+            color: #0088cc;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .select-btn:hover {
+            background: #0088cc;
+            color: white;
+        }
+        
+        .search-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .search-title {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .search-subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .search-form {
+            margin-bottom: 20px;
+        }
+        
+        .keyword-input-section {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .keywords-display {
+            min-height: 50px;
+            border: 2px solid #e1e8ed;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #f8f9fa;
+        }
+        
+        .keyword-tag {
+            display: inline-block;
+            background: #0088cc;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            margin: 5px;
+            font-size: 14px;
+            position: relative;
+        }
+        
+        .keyword-tag .remove-btn {
+            margin-left: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .keyword-tag .remove-btn:hover {
+            color: #ffcccc;
+        }
+        
+        .search-controls {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .stop-btn {
+            background: #dc3545;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: none;
+        }
+        
+        .stop-btn:hover {
+            background: #c82333;
+        }
+        
+        .save-btn {
+            background: #28a745;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: none;
+            margin-left: 15px;
+        }
+        
+        .save-btn:hover {
+            background: #218838;
+        }
+        
+        .history-item {
+            border: 1px solid #e1e8ed;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #f8f9fa;
+            transition: all 0.3s;
+        }
+        
+        .history-item:hover {
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .history-keywords {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        
+        .history-keyword {
+            background: #0088cc;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        
+        .history-stats {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .history-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .history-btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+        
+        .repeat-btn {
+            background: #0088cc;
+            color: white;
+        }
+        
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .add-word-btn {
+            background: #28a745;
+            color: white;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .add-word-btn:hover {
+            background: #218838;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e1e8ed;
+            border-radius: 50px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        .matched-words {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #0088cc;
+            font-weight: 600;
+        }
+        
+        .search-input:focus {
+            border-color: #0088cc;
+        }
+        
+        .search-btn {
+            background: #0088cc;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .search-btn:hover {
+            background: #006fa6;
+            transform: translateY(-2px);
+        }
+        
+        .search-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0088cc;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .results {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: none;
+            margin-bottom: 30px;
+        }
+        
+        .ai-results {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: none;
+            margin-top: 30px;
+        }
+        
+        .ai-results .results-header {
+            background: #6f42c1;
+            color: white;
+        }
+        
+        .ai-results .results-count {
+            color: white !important;
+        }
+        
+        .results-header {
+            background: #f8f9fa;
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .results-title {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .results-count {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .messages {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .message {
+            padding: 20px;
+            border-bottom: 1px solid #f1f3f4;
+        }
+        
+        .message:last-child {
+            border-bottom: none;
+        }
+        
+        .message-text {
+            color: #333;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            white-space: pre-wrap;
+        }
+        
+        .message-meta {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .message-author {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .message-chat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .message-date {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            🔍 Message Hunter
+        </div>
+        <div class="user-info">
+            <div class="usage-stats" id="usageStats">
+                🆓 Бесплатная версия<br>🔍 0/17 | 🤖 0/7
+            </div>
+            <div class="user-avatar" id="userAvatar">
+                T
+            </div>
+            <span id="userName">Telegram User</span>
+            <a href="/logout" class="logout-btn">Выйти</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('search')">🔍 Поиск сообщений</button>
+            <button class="tab" onclick="switchTab('groups')">📂 Выбор групп</button>
+            <button class="tab" onclick="switchTab('history')">📋 История поиска</button>
+        </div>
+        
+        <!-- Вкладка поиска -->
+        <div class="tab-content active" id="search-tab">
+            <h1 class="search-title">Поиск сообщений</h1>
+            <p class="search-subtitle">Найдите нужные сообщения в выбранных Telegram группах</p>
+            
+            <div class="search-form">
+                <div class="keyword-input-section">
+                    <input type="text" 
+                           class="search-input" 
+                           id="wordInput" 
+                           placeholder="Введите одно слово"
+                           autocomplete="off"
+                           maxlength="50">
+                    <button class="add-word-btn" onclick="addKeyword()">
+                        ➕ Добавить слово
+                    </button>
+                </div>
+                
+                <div class="keywords-display" id="keywordsDisplay">
+                    <span style="color: #666; font-style: italic;">Добавьте слова для поиска...</span>
+                </div>
+                
+                <div class="search-controls">
+                    <button class="search-btn" id="searchBtn" onclick="performSearch()">
+                        🔍 Найти сообщения
+                    </button>
+                    <button class="stop-btn" id="stopBtn" onclick="stopSearch()">
+                        ⏹️ Остановить поиск
+                    </button>
+                    <button class="save-btn" id="saveBtn" onclick="saveCurrentSearch()">
+                        💾 Сохранить в историю
+                    </button>
+                    <button class="save-btn" id="analyzeBtn" onclick="analyzeWithAI()" style="background: #6f42c1;">
+                        🤖 Анализировать с AI
+                    </button>
+                </div>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                Поиск по группам... Это может занять несколько минут
+            </div>
+            
+            <div class="error" id="error"></div>
+        </div>
+        
+        <!-- Вкладка выбора групп -->
+        <div class="tab-content" id="groups-tab">
+            <h1 class="search-title">Выбор групп для поиска</h1>
+            <p class="search-subtitle">Выберите группы в которых будет происходить поиск</p>
+            
+            <div class="groups-actions">
+                <button class="select-btn" onclick="selectAllGroups()">✅ Выбрать все</button>
+                <button class="select-btn" onclick="deselectAllGroups()">❌ Убрать все</button>
+                <button class="select-btn" onclick="forceReloadGroups()">🔄 Обновить список</button>
+            </div>
+            
+            <div class="groups-container" id="groupsContainer">
+                <div style="text-align: center; padding: 20px; color: #666;">
+                    Загрузка групп...
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px; color: #666; font-size: 14px;">
+                <span id="selectedCount">Выбрано: 0 групп</span>
+            </div>
+        </div>
+        
+        <!-- Вкладка истории поиска -->
+        <div class="tab-content" id="history-tab">
+            <h1 class="search-title">История поиска</h1>
+            <p class="search-subtitle">Ваши сохранённые поиски и результаты</p>
+            
+            <div class="groups-actions">
+                <button class="select-btn" onclick="loadHistory()">🔄 Обновить историю</button>
+                <button class="select-btn" onclick="clearHistory()">🗑️ Очистить историю</button>
+            </div>
+            
+            <div class="groups-container" id="historyContainer">
+                <div style="text-align: center; padding: 20px; color: #666;">
+                    История пуста
+                </div>
+            </div>
+        </div>
+        
+        <div class="results" id="results">
+            <div class="results-header">
+                <div class="results-title">Результаты поиска</div>
+                <div class="results-count" id="resultsCount"></div>
+            </div>
+            <div class="messages" id="messages"></div>
+        </div>
+        
+        <!-- Результаты AI анализа -->
+        <div class="ai-results" id="aiResults">
+            <div class="results-header">
+                <div class="results-title">🤖 AI Анализ потенциальных клиентов</div>
+                <div class="results-count" id="aiResultsCount"></div>
+            </div>
+            <div class="messages" id="aiMessages"></div>
+        </div>
+        
+        <!-- Модальное окно оплаты -->
+        <div class="payment-modal" id="paymentModal">
+            <div class="payment-content">
+                <button class="close-btn" onclick="closePaymentModal()">×</button>
+                <div class="payment-title">💎 Обновление до Premium</div>
+                
+                <div class="payment-info">
+                    <h3>🚀 Premium возможности:</h3>
+                    <p>✅ Безлимитный поиск сообщений</p>
+                    <p>✅ Безлимитный AI анализ</p>
+                    <p>✅ Приоритетная поддержка</p>
+                    <p>✅ Новые функции первыми</p>
+                </div>
+                
+                <div class="payment-info">
+                    <h3>💰 Стоимость: $10 USDT</h3>
+                    <p>Отправьте <strong>$10 USDT</strong> на кошелек:</p>
+                    <div class="wallet-address" onclick="copyWallet()" id="walletAddress">
+                        Загрузка адреса...
+                    </div>
+                    <p style="font-size: 12px; color: #666;">Нажмите на адрес для копирования</p>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button class="search-btn" onclick="checkPayment()">
+                        ✅ Я отправил оплату
+                    </button>
+                </div>
+                
+                <p style="font-size: 12px; color: #666; margin-top: 15px;">
+                    После оплаты доступ активируется в течение 5-10 минут
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let keywords = [];
+        let searchAbortController = null;
+        let selectedGroups = [];
+        let allGroups = [];
+        let lastSearchResults = null;
+        let userStats = null;
+        let telegramUserInfo = null;
+        let groupsLoaded = false; // Флаг загрузки групп
+        
+        // Загрузка информации о Telegram пользователе
+        function loadTelegramUserInfo() {
+            console.log('📱 Загружаю информацию о пользователе...');
+            
+            fetch('/get_telegram_user_info')
+            .then(response => {
+                console.log('Ответ сервера:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Данные пользователя:', data);
+                if (data.success) {
+                    telegramUserInfo = data.user_info;
+                    updateUserDisplay();
+                } else {
+                    console.error('Ошибка загрузки пользователя:', data.error);
+                    // Показываем fallback
+                    document.getElementById('userName').textContent = 'Пользователь';
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка запроса пользователя:', error);
+                // Показываем fallback
+                document.getElementById('userName').textContent = 'Пользователь';
+            });
+        }
+        
+        function updateUserDisplay() {
+            console.log('🎨 Обновляю отображение пользователя:', telegramUserInfo);
+            
+            if (telegramUserInfo) {
+                const userNameEl = document.getElementById('userName');
+                const userAvatarEl = document.getElementById('userAvatar');
+                
+                // Обновляем имя
+                const fullName = `${telegramUserInfo.first_name} ${telegramUserInfo.last_name}`.trim();
+                const displayName = fullName || telegramUserInfo.username || 'Пользователь';
+                userNameEl.textContent = displayName;
+                console.log('Имя установлено:', displayName);
+                
+                // Обновляем аватар
+                if (telegramUserInfo.avatar_data) {
+                    userAvatarEl.innerHTML = `<img src="data:image/jpeg;base64,${telegramUserInfo.avatar_data}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                    console.log('Аватар загружен');
+                } else {
+                    // Показываем первую букву имени
+                    const firstLetter = telegramUserInfo.first_name ? telegramUserInfo.first_name[0] : 
+                                       telegramUserInfo.username ? telegramUserInfo.username[0] : '?';
+                    userAvatarEl.textContent = firstLetter.toUpperCase();
+                    console.log('Показана первая буква:', firstLetter);
+                }
+            } else {
+                console.log('❌ Нет данных пользователя');
+            }
+        }
+        
+        // Загрузка статистики пользователя
+        function loadUserStats() {
+            fetch('/get_user_stats')
+            .then(response => response.json())
+            .then(data => {
+                userStats = data;
+                updateUsageDisplay();
+            })
+            .catch(error => console.error('Error loading stats:', error));
+        }
+        
+        function updateUsageDisplay() {
+            if (userStats) {
+                const statsEl = document.getElementById('usageStats');
+                if (userStats.is_premium) {
+                    statsEl.innerHTML = '💎 PREMIUM';
+                    statsEl.style.background = 'linear-gradient(45deg, #ffd700, #ffed4a)';
+                    statsEl.style.color = '#333';
+                } else {
+                    statsEl.innerHTML = `🆓 Бесплатная версия<br>🔍 ${userStats.searches_used}/${userStats.searches_used + userStats.searches_remaining} | 🤖 ${userStats.ai_analysis_used}/${userStats.ai_analysis_used + userStats.ai_analysis_remaining}`;
+                    statsEl.style.fontSize = '11px';
+                    statsEl.style.lineHeight = '1.2';
+                }
+            }
+        }
+        
+        // Управление вкладками
+        function switchTab(tabName) {
+            // Убираем активные классы
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Добавляем активные классы
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            
+            // Группы и история уже загружаются автоматически при входе на сайт
+            console.log(`Переключились на вкладку: ${tabName}`);
+        }
+        
+        // Загрузка списка групп (с сохранением в браузере)
+        function loadGroups() {
+            // Сначала пытаемся загрузить из браузера
+            const cachedGroups = getCachedGroups();
+            if (cachedGroups && cachedGroups.length > 0) {
+                console.log('📋 Загружаю группы из кэша браузера');
+                allGroups = cachedGroups;
+                selectedGroups = cachedGroups.map(g => g.id);
+                displayGroups();
+                return;
+            }
+            
+            console.log('🔄 Загружаю группы с сервера...');
+            
+            // Показываем индикатор загрузки
+            document.getElementById('groupsContainer').innerHTML = 
+                '<div style="text-align: center; padding: 20px; color: #666;">Загрузка групп...</div>';
+            
+            fetch('/get_groups')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    allGroups = data.groups;
+                    selectedGroups = data.groups.map(g => g.id);
+                    
+                    // Сохраняем в браузер
+                    saveCachedGroups(allGroups);
+                    
+                    displayGroups();
+                    console.log(`✅ Загружено и сохранено ${allGroups.length} групп`);
+                } else {
+                    document.getElementById('groupsContainer').innerHTML = 
+                        '<div style="text-align: center; padding: 20px; color: #dc3545;">Ошибка загрузки групп</div>';
+                    console.error('❌ Ошибка загрузки групп');
+                }
+            })
+            .catch(error => {
+                console.error('❌ Ошибка загрузки групп:', error);
+                document.getElementById('groupsContainer').innerHTML = 
+                    '<div style="text-align: center; padding: 20px; color: #dc3545;">Ошибка загрузки групп</div>';
+            });
+        }
+        
+        // Функции для работы с кэшем в браузере
+        function saveCachedGroups(groups) {
+            try {
+                const cacheData = {
+                    groups: groups,
+                    timestamp: Date.now(),
+                    expires: Date.now() + (24 * 60 * 60 * 1000) // 24 часа
+                };
+                sessionStorage.setItem('telegram_groups_cache', JSON.stringify(cacheData));
+                console.log('💾 Группы сохранены в кэш браузера');
+            } catch (e) {
+                console.log('❌ Не удалось сохранить в кэш');
+            }
+        }
+        
+        function getCachedGroups() {
+            try {
+                const cached = sessionStorage.getItem('telegram_groups_cache');
+                if (!cached) return null;
+                
+                const cacheData = JSON.parse(cached);
+                
+                // Проверяем не истёк ли кэш
+                if (Date.now() > cacheData.expires) {
+                    sessionStorage.removeItem('telegram_groups_cache');
+                    console.log('⏰ Кэш групп истёк');
+                    return null;
+                }
+                
+                console.log('📋 Найден валидный кэш групп');
+                return cacheData.groups;
+            } catch (e) {
+                console.log('❌ Ошибка чтения кэша');
+                return null;
+            }
+        }
+        
+        function clearCachedGroups() {
+            try {
+                sessionStorage.removeItem('telegram_groups_cache');
+                console.log('🗑️ Кэш групп очищен');
+            } catch (e) {
+                console.log('❌ Ошибка очистки кэша');
+            }
+        }
+        
+        // Принудительное обновление групп (по кнопке)
+        function forceReloadGroups() {
+            console.log('🔄 Принудительное обновление групп...');
+            clearCachedGroups(); // Очищаем кэш
+            allGroups = []; // Очищаем переменные
+            selectedGroups = [];
+            loadGroups(); // Загружаем заново
+        }
+        
+        // Отображение списка групп
+        function displayGroups() {
+            const container = document.getElementById('groupsContainer');
+            
+            if (allGroups.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Группы не найдены</div>';
+                return;
+            }
+            
+            // Всегда обновляем интерфейс, независимо от активной вкладки
+            container.innerHTML = allGroups.map(group => `
+                <div class="group-item">
+                    <input type="checkbox" 
+                           class="group-checkbox" 
+                           id="group_${group.id}"
+                           ${selectedGroups.includes(group.id) ? 'checked' : ''}
+                           onchange="toggleGroup('${group.id}')">
+                    <div class="group-info">
+                        <div class="group-title">${group.title}</div>
+                        <div class="group-type">${group.status || group.type}</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            updateSelectedCount();
+            console.log(`📋 Интерфейс обновлён: ${allGroups.length} групп отображено`);
+        }
+        
+        // Переключение выбора группы
+        function toggleGroup(groupId) {
+            if (selectedGroups.includes(groupId)) {
+                selectedGroups = selectedGroups.filter(id => id !== groupId);
+            } else {
+                selectedGroups.push(groupId);
+            }
+            updateSelectedCount();
+        }
+        
+        // Выбрать все группы
+        function selectAllGroups() {
+            selectedGroups = allGroups.map(g => g.id);
+            document.querySelectorAll('.group-checkbox').forEach(cb => cb.checked = true);
+            updateSelectedCount();
+        }
+        
+        // Убрать все группы
+        function deselectAllGroups() {
+            selectedGroups = [];
+            document.querySelectorAll('.group-checkbox').forEach(cb => cb.checked = false);
+            updateSelectedCount();
+        }
+        
+        // Обновить счетчик выбранных групп
+        function updateSelectedCount() {
+            document.getElementById('selectedCount').textContent = 
+                `Выбрано: ${selectedGroups.length} из ${allGroups.length} групп`;
+        }
+        
+        function addKeyword() {
+            const input = document.getElementById('wordInput');
+            const word = input.value.trim().toLowerCase();
+            
+            if (!word) {
+                showError('Введите слово для добавления');
+                return;
+            }
+            
+            if (word.includes(' ')) {
+                showError('Можно добавлять только одно слово за раз');
+                return;
+            }
+            
+            if (keywords.includes(word)) {
+                showError('Это слово уже добавлено');
+                return;
+            }
+            
+            keywords.push(word);
+            input.value = '';
+            updateKeywordsDisplay();
+        }
+        
+        function removeKeyword(word) {
+            keywords = keywords.filter(k => k !== word);
+            updateKeywordsDisplay();
+        }
+        
+        function updateKeywordsDisplay() {
+            const display = document.getElementById('keywordsDisplay');
+            
+            if (keywords.length === 0) {
+                display.innerHTML = '<span style="color: #666; font-style: italic;">Добавьте слова для поиска...</span>';
+            } else {
+                display.innerHTML = keywords.map(word => 
+                    `<span class="keyword-tag">
+                        ${word}
+                        <span class="remove-btn" onclick="removeKeyword('${word}')">×</span>
+                    </span>`
+                ).join('');
+            }
+        }
+        
+        function performSearch() {
+            if (keywords.length === 0) {
+                showError('Добавьте хотя бы одно слово для поиска');
+                return;
+            }
+            
+            if (selectedGroups.length === 0) {
+                showError('Выберите хотя бы одну группу для поиска');
+                return;
+            }
+            
+            searchAbortController = new AbortController();
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('searchBtn').disabled = true;
+            document.getElementById('stopBtn').style.display = 'inline-block';
+            
+            fetch('/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    keyword: keywords.join(' '),
+                    selected_groups: selectedGroups
+                }),
+                signal: searchAbortController.signal
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('searchBtn').disabled = false;
+                document.getElementById('stopBtn').style.display = 'none';
+                
+                if (data.error) {
+                    if (data.limit_exceeded) {
+                        showPaymentModal();
+                    } else {
+                        showError(data.error);
+                    }
+                } else {
+                    lastSearchResults = {
+                        keywords: keywords.slice(),
+                        results: data.results,
+                        groups_count: selectedGroups.length
+                    };
+                    showResults(data.results, keywords.join(', '));
+                    document.getElementById('saveBtn').style.display = 'inline-block';
+                    document.getElementById('analyzeBtn').style.display = 'inline-block';
+                    loadUserStats(); // Обновляем статистику
+                }
+            })
+            .catch(error => {
+                if (error.name === 'AbortError') {
+                    showError('Поиск остановлен пользователем');
+                } else {
+                    showError('Произошла ошибка при поиске');
+                    console.error('Error:', error);
+                }
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('searchBtn').disabled = false;
+                document.getElementById('stopBtn').style.display = 'none';
+            });
+        }
+        
+        function stopSearch() {
+            if (searchAbortController) {
+                searchAbortController.abort();
+                searchAbortController = null;
+            }
+        }
+        
+        function showResults(results, keyword) {
+            const resultsDiv = document.getElementById('results');
+            const messagesDiv = document.getElementById('messages');
+            const countDiv = document.getElementById('resultsCount');
+            
+            countDiv.textContent = `Найдено ${results.length} сообщений по словам: ${keyword} в ${selectedGroups.length} группах`;
+            
+            messagesDiv.innerHTML = '';
+            
+            results.forEach((msg, index) => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message';
+                messageDiv.innerHTML = `
+                    <div class="message-text">${msg.text}</div>
+                    ${msg.matched_words ? '<div class="matched-words">Найденные слова: ' + msg.matched_words.join(', ') + '</div>' : ''}
+                    <div class="message-meta">
+                        <div class="message-author">
+                            <span>👤</span>
+                            <span>@${msg.author}</span>
+                        </div>
+                        <div class="message-chat">
+                            <span>💬</span>
+                            <span>${msg.chat}</span>
+                        </div>
+                        <div class="message-date">
+                            <span>📅</span>
+                            <span>${msg.date}</span>
+                        </div>
+                    </div>
+                `;
+                messagesDiv.appendChild(messageDiv);
+            });
+            
+            resultsDiv.style.display = 'block';
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+        
+        // Enter для добавления слова
+        document.getElementById('wordInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addKeyword();
+            }
+        });
+        
+        // Остановка поиска при обновлении страницы
+        window.addEventListener('beforeunload', function() {
+            if (searchAbortController) {
+                searchAbortController.abort();
+            }
+        });
+        
+        // Функции истории поиска
+        function saveCurrentSearch() {
+            if (!lastSearchResults) {
+                showError('Нет результатов для сохранения');
+                return;
+            }
+            
+            fetch('/save_search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    keywords: lastSearchResults.keywords,
+                    results_count: lastSearchResults.results.length,
+                    groups_count: lastSearchResults.groups_count,
+                    results: lastSearchResults.results
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('saveBtn').style.display = 'none';
+                    showError('✅ Поиск сохранён в историю');
+                } else {
+                    showError('Ошибка сохранения');
+                }
+            })
+            .catch(error => {
+                showError('Ошибка сохранения');
+                console.error('Error:', error);
+            });
+        }
+        
+        function loadHistory() {
+            document.getElementById('historyContainer').innerHTML = 
+                '<div style="text-align: center; padding: 20px; color: #666;">Загрузка истории...</div>';
+            
+            fetch('/get_history')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayHistory(data.history);
+                } else {
+                    document.getElementById('historyContainer').innerHTML = 
+                        '<div style="text-align: center; padding: 20px; color: #dc3545;">Ошибка загрузки истории</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('historyContainer').innerHTML = 
+                    '<div style="text-align: center; padding: 20px; color: #dc3545;">Ошибка загрузки истории</div>';
+            });
+        }
+        
+        function displayHistory(history) {
+            const container = document.getElementById('historyContainer');
+            
+            if (history.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">История поиска пуста</div>';
+                return;
+            }
+            
+            container.innerHTML = history.map(item => `
+                <div class="history-item">
+                    <div class="history-header">
+                        <div class="history-keywords">
+                            ${item.keywords.map(keyword => `<span class="history-keyword">${keyword}</span>`).join('')}
+                        </div>
+                        <div class="history-stats">
+                            ${item.date}
+                        </div>
+                    </div>
+                    <div class="history-stats">
+                        Найдено: ${item.results_count} сообщений в ${item.groups_count} группах
+                    </div>
+                    <div class="history-actions">
+                        <button class="history-btn repeat-btn" onclick="repeatSearch(${item.id})">
+                            🔄 Повторить поиск
+                        </button>
+                        <button class="history-btn delete-btn" onclick="deleteHistoryItem(${item.id})">
+                            🗑️ Удалить
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function repeatSearch(searchId) {
+            // Переключаемся на вкладку поиска и повторяем поиск
+            switchTab('search');
+            showError('Функция повторного поиска в разработке');
+        }
+        
+        function deleteHistoryItem(searchId) {
+            if (!confirm('Удалить этот поиск из истории?')) return;
+            
+            fetch(`/delete_search/${searchId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadHistory(); // Перезагружаем историю
+                } else {
+                    showError('Ошибка удаления');
+                }
+            })
+            .catch(error => {
+                showError('Ошибка удаления');
+                console.error('Error:', error);
+            });
+        }
+        
+        function clearHistory() {
+            if (!confirm('Очистить всю историю поиска?')) return;
+            showError('Функция очистки истории в разработке');
+        }
+        
+        // Анализ с помощью AI
+        function analyzeWithAI() {
+            if (!lastSearchResults || !lastSearchResults.results) {
+                showError('Нет результатов для анализа');
+                return;
+            }
+            
+            if (lastSearchResults.results.length === 0) {
+                showError('Нет сообщений для анализа');
+                return;
+            }
+            
+            if (lastSearchResults.results.length > 30) {
+                if (!confirm(`У вас ${lastSearchResults.results.length} сообщений. Анализ только первых 30. Продолжить?`)) {
+                    return;
+                }
+            }
+            
+            // Показываем загрузку
+            document.getElementById('analyzeBtn').disabled = true;
+            document.getElementById('analyzeBtn').textContent = '🤖 Анализирую...';
+            document.getElementById('aiResults').style.display = 'none';
+            
+            // Берём максимум 30 сообщений
+            const messagesToAnalyze = lastSearchResults.results.slice(0, 30);
+            
+            fetch('/analyze_with_ai', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    messages: messagesToAnalyze
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('analyzeBtn').disabled = false;
+                document.getElementById('analyzeBtn').textContent = '🤖 Анализировать с AI';
+                
+                if (data.error) {
+                    if (data.limit_exceeded) {
+                        showPaymentModal();
+                    } else {
+                        showError(data.error);
+                    }
+                } else {
+                    showAIResults(data.potential_clients, data.analyzed_count);
+                    loadUserStats(); // Обновляем статистику
+                }
+            })
+            .catch(error => {
+                document.getElementById('analyzeBtn').disabled = false;
+                document.getElementById('analyzeBtn').textContent = '🤖 Анализировать с AI';
+                showError('Ошибка анализа AI');
+                console.error('Error:', error);
+            });
+        }
+        
+        function showAIResults(potentialClients, analyzedCount) {
+            const aiResultsDiv = document.getElementById('aiResults');
+            const aiMessagesDiv = document.getElementById('aiMessages');
+            const aiCountDiv = document.getElementById('aiResultsCount');
+            
+            aiCountDiv.textContent = `Найдено ${potentialClients.length} потенциальных клиентов из ${analyzedCount} проанализированных сообщений`;
+            
+            aiMessagesDiv.innerHTML = '';
+            
+            if (potentialClients.length === 0) {
+                aiMessagesDiv.innerHTML = '<div style="padding: 30px; text-align: center; color: #666;">🤖 AI не нашел потенциальных клиентов в этих сообщениях</div>';
+            } else {
+                potentialClients.forEach((client, index) => {
+                    const clientDiv = document.createElement('div');
+                    clientDiv.className = 'message';
+                    clientDiv.style.borderLeft = '5px solid #6f42c1';
+                    clientDiv.innerHTML = `
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                            <div style="font-weight: 600; color: #6f42c1; margin-bottom: 10px;">
+                                🎯 Потенциальный клиент #${index + 1}
+                            </div>
+                            <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                                <strong>📝 Исходное сообщение:</strong><br>
+                                <em>"${client.original_message}"</em>
+                            </div>
+                            <div style="color: #dc3545; font-weight: 600; margin-bottom: 10px;">
+                                💡 Потребность: ${client.client_need}
+                            </div>
+                        </div>
+                        <div class="message-meta">
+                            <div class="message-author">
+                                <span>👤</span>
+                                <span>${client.author}</span>
+                            </div>
+                            <div class="message-chat">
+                                <span>💬</span>
+                                <span>${client.group}</span>
+                            </div>
+                            <div class="message-date">
+                                <span>📅</span>
+                                <span>${client.date}</span>
+                            </div>
+                            <div style="color: #6f42c1; font-size: 12px;">
+                                <span>🎯</span>
+                                <span>Уверенность: ${client.confidence}</span>
+                            </div>
+                        </div>
+                    `;
+                    aiMessagesDiv.appendChild(clientDiv);
+                });
+            }
+            
+            aiResultsDiv.style.display = 'block';
+            
+            // Прокручиваем к результатам AI
+            aiResultsDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Функции оплаты
+        function showPaymentModal() {
+            if (userStats && userStats.usdt_wallet) {
+                document.getElementById('walletAddress').textContent = userStats.usdt_wallet;
+            }
+            document.getElementById('paymentModal').style.display = 'block';
+        }
+        
+        function closePaymentModal() {
+            document.getElementById('paymentModal').style.display = 'none';
+        }
+        
+        function copyWallet() {
+            const walletEl = document.getElementById('walletAddress');
+            navigator.clipboard.writeText(walletEl.textContent).then(() => {
+                const originalText = walletEl.textContent;
+                walletEl.textContent = '✅ Скопировано!';
+                setTimeout(() => {
+                    walletEl.textContent = originalText;
+                }, 2000);
+            });
+        }
+        
+        function checkPayment() {
+            const checkBtn = event.target;
+            checkBtn.disabled = true;
+            checkBtn.textContent = '🔍 Проверяю платёж...';
+            
+            fetch('/check_payment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                checkBtn.disabled = false;
+                checkBtn.textContent = '✅ Я отправил оплату';
+                
+                if (data.success) {
+                    closePaymentModal();
+                    loadUserStats(); // Обновляем статистику
+                    showError(`🎉 ${data.message}! Хеш: ${data.payment_info.hash.substring(0, 10)}...`);
+                } else {
+                    showError(`❌ ${data.message}. Попробуйте через несколько минут.`);
+                }
+            })
+            .catch(error => {
+                checkBtn.disabled = false;
+                checkBtn.textContent = '✅ Я отправил оплату';
+                showError('Ошибка проверки платежа');
+                console.error('Error:', error);
+            });
+        }
+        
+        // Единая функция инициализации
+        function initializeApp() {
+            console.log('🚀 Инициализация приложения...');
+            
+            // 1. Загружаем статистику
+            fetch('/get_user_stats')
+                .then(r => r.json())
+                .then(data => {
+                    userStats = data;
+                    updateUsageDisplay();
+                    console.log('✅ Статистика загружена');
+                })
+                .catch(e => console.log('❌ Ошибка статистики'));
+            
+            // 2. Загружаем Telegram пользователя
+            fetch('/get_telegram_user_info')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.user_info) {
+                        const user = data.user_info;
+                        const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                        const finalName = fullName || user.username || 'Mirror';
+                        
+                        // Устанавливаем имя
+                        document.getElementById('userName').textContent = finalName;
+                        console.log('✅ Имя установлено:', finalName);
+                        
+                        // Устанавливаем аватар
+                        const avatarEl = document.getElementById('userAvatar');
+                        if (user.avatar_data) {
+                            avatarEl.innerHTML = `<img src="data:image/jpeg;base64,${user.avatar_data}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                            console.log('✅ Аватар установлен');
+                        } else {
+                            const letter = user.first_name ? user.first_name[0] : (user.username ? user.username[0] : 'M');
+                            avatarEl.textContent = letter.toUpperCase();
+                            console.log('✅ Буква установлена:', letter);
+                        }
+                    } else {
+                        // Fallback
+                        document.getElementById('userName').textContent = 'Mirror';
+                        document.getElementById('userAvatar').textContent = 'M';
+                        console.log('✅ Fallback установлен');
+                    }
+                })
+                .catch(e => {
+                    // Fallback при ошибке
+                    document.getElementById('userName').textContent = 'Mirror';
+                    document.getElementById('userAvatar').textContent = 'M';
+                    console.log('✅ Fallback при ошибке');
+                });
+            
+            // 3. Загружаем группы в фоне (с проверкой кэша)
+            setTimeout(() => {
+                if (typeof loadGroups === 'function') {
+                    loadGroups(); // Функция сама проверит кэш
+                    console.log('✅ Загрузка групп запущена');
+                }
+            }, 2000);
+            
+            // 4. Загружаем историю в фоне
+            setTimeout(() => {
+                if (typeof loadHistory === 'function') {
+                    loadHistory();
+                    console.log('✅ Загрузка истории запущена');
+                }
+            }, 3000);
+        }
+        
+        // ЕДИНСТВЕННЫЙ запуск через 1 секунду
+        setTimeout(initializeApp, 1000);
+    </script>
+</body>
+</html>

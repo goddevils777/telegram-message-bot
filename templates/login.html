@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Message Hunter - Авторизация</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        
+        .logo {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .telegram-login {
+            background: #0088cc;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .telegram-login:hover {
+            background: #006fa6;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,136,204,0.3);
+        }
+        
+        .features {
+            margin-top: 40px;
+            text-align: left;
+        }
+        
+        .feature {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: #666;
+        }
+        
+        .feature-icon {
+            width: 20px;
+            height: 20px;
+            background: #e8f4fd;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">🔍</div>
+        <h1>Message Hunter</h1>
+        <p class="subtitle">Поиск сообщений в Telegram группах</p>
+        
+        <a href="https://t.me/my_message_hunter_bot?start=web_login" 
+           class="telegram-login" 
+           target="_blank">
+            📱 Авторизоваться через Telegram
+        </a>
+        
+        <div style="margin-top: 20px; background: #f0f8ff; padding: 20px; border-radius: 10px; font-size: 14px; color: #666;">
+            <strong>Как войти:</strong><br>
+            1. Нажмите кнопку выше - откроется Telegram<br>
+            2. Нажмите "START" или отправьте любое сообщение боту<br>
+            3. Бот даст вам код для входа<br>
+            4. Введите код в поле ниже
+        </div>
+        
+        <form action="/auth_with_code" method="post" style="margin-top: 20px;">
+            <input type="text" 
+                   name="auth_code" 
+                   placeholder="Введите код от бота"
+                   style="width: 100%; padding: 15px; border: 2px solid #e1e8ed; border-radius: 10px; margin-bottom: 15px; font-size: 16px; text-align: center;">
+            <button type="submit" class="telegram-login">
+                ✅ Подтвердить вход
+            </button>
+        </form>
+        
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">⚡</div>
+                <span>Поиск по всем группам одновременно</span>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔒</div>
+                <span>Безопасная авторизация через Telegram</span>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📱</div>
+                <span>Удобный веб-интерфейс</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
