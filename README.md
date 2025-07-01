@@ -1,20 +1,12 @@
-# 🔍 Message Hunter - Telegram Message Search with AI Analysis
+# Message Hunter 🔍
 
-Powerful web application for searching messages in Telegram groups with AI-powered client analysis.
+Telegram-бот для поиска сообщений и AI анализа потенциальных клиентов.
 
-## ✨ Features
+## Возможности
 
-- 🔍 **Smart Search**: Search messages across multiple Telegram groups by keywords
-- 🤖 **AI Analysis**: Analyze messages to find potential clients using Gemini AI
-- 💰 **Monetization**: Built-in payment system with USDT TRC-20
-- 📊 **Limits System**: Free tier with 17 searches + 7 AI analyses
-- 📋 **Search History**: Save and manage search results
-- 👥 **Group Selection**: Choose specific groups for targeted search
-- 🌐 **Modern UI**: Beautiful, responsive web interface
-
-## 🚀 Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/message-hunter.git
-cd message-hunter
+- 🔍 Поиск сообщений по ключевым словам в Telegram группах
+- 🤖 AI анализ потенциальных клиентов через Gemini API
+- 📊 Система лимитов (17 поисков / 7 AI анализов)
+- 💰 Монетизация через USDT TRC-20 платежи
+- 📋 История поиска
+- 📂 Выбор групп для поиска
