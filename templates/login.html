@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Message Hunter - Авторизация</title>
+    <title>Message Hunter - Поиск сообщений</title>
     <style>
         * {
             margin: 0;
@@ -44,30 +44,44 @@
         
         .subtitle {
             color: #666;
+            margin-bottom: 40px;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        .telegram-login-section {
+            margin: 30px 0;
+        }
+        
+        .login-info {
+            background: #f0f8ff;
+            padding: 20px;
+            border-radius: 15px;
             margin-bottom: 30px;
-            font-size: 16px;
+            text-align: left;
         }
         
-        .telegram-login {
-            background: #0088cc;
-            color: white;
-            padding: 15px 30px;
-            border: none;
-            border-radius: 50px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            transition: all 0.3s ease;
+        .login-info h3 {
+            color: #0088cc;
+            margin-bottom: 10px;
         }
         
-        .telegram-login:hover {
-            background: #006fa6;
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(0,136,204,0.3);
+        .login-info ul {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+            list-style: none;
+            padding: 0;
+        }
+        
+        .login-info li {
+            margin-bottom: 5px;
+        }
+        
+        .login-info li:before {
+            content: "✓ ";
+            color: #28a745;
+            font-weight: bold;
         }
         
         .features {
@@ -93,50 +107,52 @@
             justify-content: center;
             font-size: 12px;
         }
+        
+        .telegram-widget {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
     </style>
 </head>
 <body>
     <div class="login-container">
         <div class="logo">🔍</div>
         <h1>Message Hunter</h1>
-        <p class="subtitle">Поиск сообщений в Telegram группах</p>
+        <p class="subtitle">Поиск сообщений в ваших Telegram группах с анализом потенциальных клиентов</p>
         
-        <a href="https://t.me/my_message_hunter_bot?start=web_login" 
-           class="telegram-login" 
-           target="_blank">
-            📱 Авторизоваться через Telegram
-        </a>
-        
-        <div style="margin-top: 20px; background: #f0f8ff; padding: 20px; border-radius: 10px; font-size: 14px; color: #666;">
-            <strong>Как войти:</strong><br>
-            1. Нажмите кнопку выше - откроется Telegram<br>
-            2. Нажмите "START" или отправьте любое сообщение боту<br>
-            3. Бот даст вам код для входа<br>
-            4. Введите код в поле ниже
+        <div class="login-info">
+            <h3>🔐 Безопасная авторизация:</h3>
+            <ul>
+                <li>Авторизация происходит через официальный Telegram</li>
+                <li>Мы не видим ваш номер телефона</li>
+                <li>Все данные остаются в безопасности</li>
+            </ul>
         </div>
         
-        <form action="/auth_with_code" method="post" style="margin-top: 20px;">
-            <input type="text" 
-                   name="auth_code" 
-                   placeholder="Введите код от бота"
-                   style="width: 100%; padding: 15px; border: 2px solid #e1e8ed; border-radius: 10px; margin-bottom: 15px; font-size: 16px; text-align: center;">
-            <button type="submit" class="telegram-login">
-                ✅ Подтвердить вход
-            </button>
-        </form>
+        <div class="telegram-login-section">
+            <div class="telegram-widget">
+                <script async src="https://telegram.org/js/telegram-widget.js?22" 
+                        data-telegram-login="my_message_hunter_bot" 
+                        data-size="large" 
+                        data-auth-url="/auth" 
+                        data-request-access="write">
+                </script>
+            </div>
+        </div>
         
         <div class="features">
             <div class="feature">
                 <div class="feature-icon">⚡</div>
-                <span>Поиск по всем группам одновременно</span>
+                <span>Быстрый поиск по вашим группам</span>
             </div>
             <div class="feature">
-                <div class="feature-icon">🔒</div>
-                <span>Безопасная авторизация через Telegram</span>
+                <div class="feature-icon">🤖</div>
+                <span>AI анализ потенциальных клиентов</span>
             </div>
             <div class="feature">
-                <div class="feature-icon">📱</div>
-                <span>Удобный веб-интерфейс</span>
+                <div class="feature-icon">📊</div>
+                <span>История поиска и статистика</span>
             </div>
         </div>
     </div>

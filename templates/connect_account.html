@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подключение аккаунта - Message Hunter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .connect-container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        .logo {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            gap: 10px;
+        }
+        
+        .step {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e1e8ed;
+        }
+        
+        .step.active {
+            background: #0088cc;
+        }
+        
+        .phone-form {
+            margin-bottom: 30px;
+        }
+        
+        .phone-input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e1e8ed;
+            border-radius: 15px;
+            font-size: 16px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: border-color 0.3s;
+        }
+        
+        .phone-input:focus {
+            outline: none;
+            border-color: #0088cc;
+        }
+        
+        .code-form {
+            display: none;
+            margin-bottom: 30px;
+        }
+        
+        .code-input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e1e8ed;
+            border-radius: 15px;
+            font-size: 20px;
+            text-align: center;
+            letter-spacing: 5px;
+            margin-bottom: 20px;
+            font-family: monospace;
+        }
+        
+        .submit-btn {
+            background: #0088cc;
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        
+        .submit-btn:hover {
+            background: #006fa6;
+            transform: translateY(-2px);
+        }
+        
+        .submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .back-btn {
+            background: transparent;
+            color: #0088cc;
+            border: 2px solid #0088cc;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+        
+        .back-btn:hover {
+            background: #0088cc;
+            color: white;
+        }
+        
+        .info-box {
+            background: #f0f8ff;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        
+        .info-title {
+            font-weight: 600;
+            color: #0088cc;
+            margin-bottom: 10px;
+        }
+        
+        .info-list {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .success-message {
+            background: #efe;
+            color: #393;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="connect-container">
+        <div class="logo">📱</div>
+        <h1>Подключение аккаунта</h1>
+        <p class="subtitle">Подключите свой Telegram аккаунт для поиска в ваших группах</p>
+        
+        <div class="step-indicator">
+            <div class="step active" id="step1"></div>
+            <div class="step" id="step2"></div>
+            <div class="step" id="step3"></div>
+        </div>
+        
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+        
+        <!-- Шаг 1: Ввод номера телефона -->
+        <div class="phone-form" id="phoneForm">
+            <div class="info-box">
+                <div class="info-title">🔐 Безопасность:</div>
+                <div class="info-list">
+                    • Ваш номер телефона не сохраняется<br>
+                    • Используется только для авторизации<br>
+                    • Данные остаются на вашем устройстве
+                </div>
+            </div>
+            
+            <form onsubmit="sendCode(event)">
+                <input type="tel" 
+                       class="phone-input" 
+                       id="phoneInput"
+                       placeholder="+380991234567" 
+                       required>
+                <button type="submit" class="submit-btn" id="sendCodeBtn">
+                    📱 Отправить код
+                </button>
+            </form>
+        </div>
+        
+        <!-- Шаг 2: Ввод кода подтверждения -->
+        <div class="code-form" id="codeForm">
+            <div class="info-box">
+                <div class="info-title">📨 Код отправлен!</div>
+                <div class="info-list">
+                    Введите 5-значный код из SMS или Telegram
+                </div>
+            </div>
+            
+            <form onsubmit="verifyCode(event)">
+                <input type="text" 
+                       class="code-input" 
+                       id="codeInput"
+                       placeholder="12345" 
+                       maxlength="5"
+                       required>
+                <button type="submit" class="submit-btn" id="verifyCodeBtn">
+                    ✅ Подтвердить код
+                </button>
+            </form>
+            
+            <button class="back-btn" onclick="goBackToPhone()">
+                ← Изменить номер
+            </button>
+        </div>
+        
+        <a href="/" class="back-btn">← Вернуться назад</a>
+    </div>
+    
+    <script>
+        let currentPhone = '';
+        
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+            
+            setTimeout(() => {
+                errorEl.style.display = 'none';
+            }, 5000);
+        }
+        
+        function showSuccess(message) {
+            const successEl = document.getElementById('successMessage');
+            successEl.textContent = message;
+            successEl.style.display = 'block';
+        }
+        
+        async function sendCode(event) {
+            event.preventDefault();
+            
+            const phone = document.getElementById('phoneInput').value.trim();
+            if (!phone) {
+                showError('Введите номер телефона');
+                return;
+            }
+            
+            const sendBtn = document.getElementById('sendCodeBtn');
+            sendBtn.disabled = true;
+            sendBtn.textContent = '🔄 Открываем бота...';
+            
+            try {
+                const response = await fetch('/send_auth_code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ phone: phone })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.redirect_to_bot) {
+                    // Открываем бота
+                    window.open(data.bot_url, '_blank');
+                    
+                    // Меняем интерфейс
+                    document.getElementById('phoneForm').style.display = 'none';
+                    document.getElementById('codeForm').innerHTML = `
+                        <div class="info-box">
+                            <div class="info-title">🤖 Завершите авторизацию в боте</div>
+                            <div class="info-list">
+                                1. Откройте бота в новой вкладке<br>
+                                2. Введите ваш номер телефона в боте<br>
+                                3. Введите SMS код в боте<br>
+                                4. После подтверждения вернитесь сюда
+                            </div>
+                        </div>
+                        <button class="submit-btn" onclick="checkAuthStatus()">
+                            🔄 Проверить подключение
+                        </button>
+                        <button class="back-btn" onclick="location.reload()">
+                            ← Начать заново
+                        </button>
+                    `;
+                    document.getElementById('codeForm').style.display = 'block';
+                    
+                    document.getElementById('step1').classList.remove('active');
+                    document.getElementById('step2').classList.add('active');
+                    
+                } else {
+                    showError(data.error || 'Ошибка перенаправления');
+                }
+            } catch (error) {
+                showError('Ошибка соединения');
+            }
+            
+            sendBtn.disabled = false;
+            sendBtn.textContent = '📱 Отправить код';
+        }
+
+        async function checkAuthStatus() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = '🔍 Проверяем...';
+            
+            try {
+                const response = await fetch('/check_auth_status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.connected && data.success) {
+                    document.getElementById('step2').classList.remove('active');
+                    document.getElementById('step3').classList.add('active');
+                    
+                    showSuccess('✅ Аккаунт успешно подключен!');
+                    
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                } else {
+                    showError('Аккаунт еще не подключен. Завершите авторизацию в боте.');
+                }
+            } catch (error) {
+                showError('Ошибка проверки статуса');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔄 Проверить подключение';
+            }
+        }
+
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/check_auth_status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.connected && data.success) {
+                    document.getElementById('step2').classList.remove('active');
+                    document.getElementById('step3').classList.add('active');
+                    
+                    showSuccess('✅ Аккаунт успешно подключен!');
+                    
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                } else if (data.error) {
+                    showError(data.error);
+                } else {
+                    showError('Аккаунт еще не подключен. Завершите авторизацию в боте.');
+                }
+            } catch (error) {
+                showError('Ошибка проверки статуса');
+            }
+        }
+        
+        async function verifyCode(event) {
+            event.preventDefault();
+            
+            const code = document.getElementById('codeInput').value.trim();
+            if (!code) {
+                showError('Введите код подтверждения');
+                return;
+            }
+            
+            const verifyBtn = document.getElementById('verifyCodeBtn');
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = '🔍 Проверяем...';
+            
+            try {
+                const response = await fetch('/verify_auth_code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        phone: currentPhone,
+                        code: code
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('step2').classList.remove('active');
+                    document.getElementById('step3').classList.add('active');
+                    
+                    showSuccess('✅ Аккаунт успешно подключен!');
+                    
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                } else {
+                    showError(data.error || 'Неверный код');
+                }
+            } catch (error) {
+                showError('Ошибка соединения');
+                console.error('Error:', error);
+            }
+            
+            verifyBtn.disabled = false;
+            verifyBtn.textContent = '✅ Подтвердить код';
+        }
+        
+        function goBackToPhone() {
+            document.getElementById('codeForm').style.display = 'none';
+            document.getElementById('phoneForm').style.display = 'block';
+            document.getElementById('step2').classList.remove('active');
+            document.getElementById('step1').classList.add('active');
+            
+            document.getElementById('codeInput').value = '';
+        }
+    </script>
+</body>
+</html>
