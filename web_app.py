@@ -47,9 +47,42 @@ user_usage = {}
 USDT_WALLET = "TMB8QT6n55WFvzQgN5QNGZWHozt2PjjMJE"
 
 # Утилиты
+def load_saved_api_keys():
+    """Загружает сохранённые API ключи"""
+    global API_ID, API_HASH
+    try:
+        if os.path.exists('config/api_keys.json'):
+            with open('config/api_keys.json', 'r') as f:
+                config = json.load(f)
+            API_ID = config['API_ID']
+            API_HASH = config['API_HASH']
+            print(f"✅ Загружены API ключи: ID={API_ID}")
+    except Exception as e:
+        print(f"❌ Ошибка загрузки ключей: {e}")
+
+# Загружаем ключи при старте
+load_saved_api_keys()
+
 def get_user_client(user_id):
-    """Создает клиент для конкретного пользователя"""
-    return session_manager.get_user_client(user_id)
+    """Создает клиент для локального пользователя с API ключами"""
+    # Для локальной версии всегда используем один файл ключей
+    keys_file = 'config/api_keys.json'
+    
+    if not os.path.exists(keys_file):
+        return None
+    
+    try:
+        with open(keys_file, 'r') as f:
+            keys_data = json.load(f)
+        
+        api_id = keys_data['API_ID']
+        api_hash = keys_data['API_HASH']
+        
+        return Client(f"user_local", api_id=api_id, api_hash=api_hash)
+        
+    except Exception as e:
+        print(f"❌ Ошибка создания клиента: {e}")
+        return None
 
 def check_user_limits(user_id, action_type):
     """Проверка лимитов пользователя"""
@@ -103,68 +136,82 @@ def verify_telegram_auth(auth_data, bot_token):
     return True
 
 def is_user_account_connected(user_id):
-    """Проверяет подключен ли аккаунт пользователя"""
-    return session_manager.has_session(user_id)
+    """Проверяет есть ли API ключи для локальной версии"""
+    keys_file = 'config/api_keys.json'
+    return os.path.exists(keys_file)
 
 # Основные маршруты
 @app.route('/')
 def index():
-    if 'user_id' in session:
-        # Проверяем подключен ли личный аккаунт пользователя
-        user_id = session['user_id']
-        if not is_user_account_connected(user_id):
-            return render_template('connect_account.html', user=session)
-        
-        return render_template('dashboard.html', user=session)
-    return render_template('login.html')
+    # Прямой вход в дашборд без Telegram авторизации
+    return render_template('dashboard.html')
 
-@app.route('/auth')
-def auth():
-    """Обработка авторизации через Telegram"""
-    auth_data = dict(request.args)
+
+@app.route('/get_telegram_user_info', methods=['GET'])
+def get_telegram_user_info():
+    """Возвращает статичную информацию пользователя"""
+    user_info = {
+        'first_name': 'Пользователь',
+        'last_name': '',
+        'username': 'local_user',
+        'user_id': 'local',
+        'has_photo': False,
+        'avatar_data': None
+    }
     
-    if verify_telegram_auth(auth_data, BOT_TOKEN):
-        user_id = str(auth_data.get('id'))
-        
-        # Сохраняем данные пользователя в сессии
-        session['user_id'] = user_id
-        session['first_name'] = auth_data.get('first_name', '')
-        session['last_name'] = auth_data.get('last_name', '')
-        session['username'] = auth_data.get('username', '')
-        session['photo_url'] = auth_data.get('photo_url', '')
-        
-        # Создаем файл сессии для этого пользователя (копируем готовую)
-        try:
-            import shutil
-            shutil.copy('user_sessions/test_user.json', f'user_sessions/{user_id}.json')
-            print(f"✅ Создана сессия для пользователя {user_id}")
-        except Exception as e:
-            print(f"❌ Ошибка создания сессии: {e}")
-        
-        return redirect('/')
-    else:
-        return "Ошибка авторизации", 401
+    return jsonify({
+        'success': True,
+        'user_info': user_info
+    })
 
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect('/')
 
-# Поиск и группы
-@app.route('/search', methods=['POST'])
-def search():
-    """API для поиска сообщений с проверкой лимитов"""
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    
-    user_id = session['user_id']
+
+@app.route('/get_groups', methods=['GET'])
+def get_groups():
+    """Получить список групп пользователя для локальной версии"""
+    # Для локальной версии используем статичного пользователя
+    user_id = 'local_user'
     
     if not is_user_account_connected(user_id):
-        return jsonify({'error': 'Сначала подключите свой аккаунт'}), 403
+        return jsonify({'error': 'Сначала добавьте API ключи'}), 403
     
-    can_search, message = check_user_limits(user_id, 'search')
-    if not can_search:
-        return jsonify({'error': message, 'limit_exceeded': True}), 403
+    try:
+        def run_get_groups():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                user_client = get_user_client(user_id)
+                if not user_client:
+                    return []
+                
+                groups = loop.run_until_complete(get_user_groups_real(user_client))
+                return groups
+            finally:
+                loop.close()
+        
+        future = executor.submit(run_get_groups)
+        groups = future.result(timeout=60)
+        
+        print(f"✅ Получено {len(groups)} реальных групп")
+        
+        return jsonify({
+            'success': True,
+            'groups': groups
+        })
+        
+    except Exception as e:
+        print(f"Ошибка получения групп: {e}")
+        return jsonify({'error': f'Ошибка: {str(e)}'}), 500
+
+# История поиска
+@app.route('/search', methods=['POST'])
+def search():
+    """API для поиска сообщений для локальной версии"""
+    # Используем статичного пользователя
+    user_id = 'local_user'
+    
+    if not is_user_account_connected(user_id):
+        return jsonify({'error': 'Сначала добавьте API ключи'}), 403
     
     keyword = request.json.get('keyword', '').strip()
     selected_groups = request.json.get('selected_groups', [])
@@ -184,7 +231,7 @@ def search():
                 if not user_client:
                     return []
                 
-                results = loop.run_until_complete(search_in_selected_groups(user_client, keyword, selected_groups))
+                results = loop.run_until_complete(search_in_selected_groups_real(user_client, keyword, selected_groups))
                 return results
             finally:
                 loop.close()
@@ -192,7 +239,12 @@ def search():
         future = executor.submit(run_search)
         results = future.result(timeout=120)
         
-        increment_usage(user_id, 'search')
+        # Увеличиваем счетчик для статистики
+        if user_id not in user_usage:
+            user_usage[user_id] = {'searches_used': 0, 'ai_analysis_used': 0, 'is_premium': True}
+        user_usage[user_id]['searches_used'] += 1
+        
+        print(f"✅ Найдено {len(results)} реальных сообщений для '{keyword}'")
         
         return jsonify({
             'success': True,
@@ -203,53 +255,53 @@ def search():
     except Exception as e:
         print(f"Ошибка поиска: {e}")
         return jsonify({'error': f'Ошибка поиска: {str(e)}'}), 500
-
-@app.route('/get_groups', methods=['GET'])
-def get_groups():
-    """Получить список групп пользователя"""
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
     
-    user_id = session['user_id']
+# Локальная версия без лимитов
     
-    if not is_user_account_connected(user_id):
-        return jsonify({'error': 'Сначала подключите свой аккаунт'}), 403
+    keyword = request.json.get('keyword', '').strip()
+    selected_groups = request.json.get('selected_groups', [])
+    
+    if not keyword:
+        return jsonify({'error': 'Введите ключевое слово'}), 400
+    
+    if not selected_groups:
+        return jsonify({'error': 'Выберите группы для поиска'}), 400
     
     try:
-        def run_get_groups():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                user_client = get_user_client(user_id)
-                if not user_client:
-                    return []
-                
-                groups = loop.run_until_complete(get_user_groups(user_client))
-                return groups
-            finally:
-                loop.close()
-        
-        future = executor.submit(run_get_groups)
-        groups = future.result(timeout=60)
-        
-        return jsonify({
-            'success': True,
-            'groups': groups
-        })
+            def run_search():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    user_client = get_user_client(user_id)
+                    if not user_client:
+                        return []
+                    
+                    results = loop.run_until_complete(search_in_selected_groups_real(user_client, keyword, selected_groups))
+                    return results
+                finally:
+                    loop.close()
+            
+            future = executor.submit(run_search)
+            results = future.result(timeout=120)
+            
+            increment_usage(user_id, 'search')
+            
+            print(f"✅ Найдено {len(results)} реальных сообщений для '{keyword}'")
+            
+            return jsonify({
+                'success': True,
+                'results': results,
+                'total': len(results)
+            })
         
     except Exception as e:
-        print(f"Ошибка получения групп: {e}")
-        return jsonify({'error': f'Ошибка: {str(e)}'}), 500
+        print(f"Ошибка поиска: {e}")
+        return jsonify({'error': f'Ошибка поиска: {str(e)}'}), 500
 
-# История поиска
 @app.route('/save_search', methods=['POST'])
 def save_search():
     """Сохранить поиск в историю"""
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    
-    data = request.json
-    user_id = session['user_id']
+    user_id = 'local_user'
     
     search_record = {
         'id': len(search_history.get(user_id, [])) + 1,
@@ -268,15 +320,15 @@ def save_search():
     if len(search_history[user_id]) > 50:
         search_history[user_id] = search_history[user_id][:50]
     
+    print(f"✅ Поиск сохранён в историю для пользователя {user_id}")
+    
     return jsonify({'success': True, 'message': 'Поиск сохранён в историю'})
 
 @app.route('/get_history', methods=['GET'])
 def get_history():
-    """Получить историю поиска"""
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    
-    user_id = session['user_id']
+    """Получить историю поиска для локального пользователя"""
+    # Используем статичного пользователя
+    user_id = 'local_user'
     history = search_history.get(user_id, [])
     
     return jsonify({
@@ -287,10 +339,7 @@ def get_history():
 @app.route('/delete_search/<int:search_id>', methods=['DELETE'])
 def delete_search(search_id):
     """Удалить поиск из истории"""
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    
-    user_id = session['user_id']
+    user_id = 'local_user'
     if user_id in search_history:
         search_history[user_id] = [s for s in search_history[user_id] if s['id'] != search_id]
     
@@ -299,62 +348,30 @@ def delete_search(search_id):
 # Статистика и лимиты
 @app.route('/get_user_stats', methods=['GET'])
 def get_user_stats():
-    """Получить статистику использования пользователя"""
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
+    """Получить статистику для локального пользователя"""
+    # Используем статичного пользователя для локальной версии
+    user_id = 'local_user'
     
-    user_id = session['user_id']
     if user_id not in user_usage:
-        user_usage[user_id] = {'searches_used': 0, 'ai_analysis_used': 0, 'is_premium': False}
+        user_usage[user_id] = {'searches_used': 0, 'ai_analysis_used': 0, 'is_premium': True}
     
     user_data = user_usage[user_id]
     
     return jsonify({
         'searches_used': user_data['searches_used'],
-        'searches_remaining': max(0, USER_LIMITS['search_limit'] - user_data['searches_used']),
+        'searches_remaining': 999,  # Безлимит для локальной версии
         'ai_analysis_used': user_data['ai_analysis_used'],
-        'ai_analysis_remaining': max(0, USER_LIMITS['ai_analysis_limit'] - user_data['ai_analysis_used']),
-        'is_premium': user_data['is_premium'],
+        'ai_analysis_remaining': 999,  # Безлимит для локальной версии
+        'is_premium': True,  # Локальная версия всегда премиум
         'usdt_wallet': USDT_WALLET
     })
-
-@app.route('/get_telegram_user_info', methods=['GET'])
-def get_telegram_user_info():
-    """Получить информацию о Telegram пользователе"""
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    
-    try:
-        user_info = {
-            'first_name': session.get('first_name', 'Пользователь'),
-            'last_name': session.get('last_name', ''),
-            'username': session.get('username', ''),
-            'user_id': session.get('user_id', ''),
-            'has_photo': False,
-            'avatar_data': None
-        }
-        
-        return jsonify({
-            'success': True,
-            'user_info': user_info
-        })
-        
-    except Exception as e:
-        print(f"Ошибка получения информации пользователя: {e}")
-        return jsonify({'error': f'Ошибка: {str(e)}'}), 500
 
 # AI анализ
 @app.route('/analyze_with_ai', methods=['POST'])
 def analyze_with_ai():
-    """Анализ сообщений с помощью AI с проверкой лимитов"""
-    if 'user_id' not in session:
-        return jsonify({'error': 'Не авторизован'}), 401
-    
-    user_id = session['user_id']
-    
-    can_analyze, message = check_user_limits(user_id, 'ai_analysis')
-    if not can_analyze:
-        return jsonify({'error': message, 'limit_exceeded': True}), 403
+    """Анализ сообщений с помощью AI для локальной версии"""
+    # Используем статичного пользователя
+    user_id = 'local_user'
     
     data = request.json
     messages = data.get('messages', [])
@@ -362,12 +379,15 @@ def analyze_with_ai():
     if not messages:
         return jsonify({'error': 'Нет сообщений для анализа'}), 400
     
-    if len(messages) > 30:
-        return jsonify({'error': 'Слишком много сообщений. Максимум 30 за раз'}), 400
+    print(f"🤖 Анализируем {len(messages)} сообщений")
     
     try:
         potential_clients = analyze_messages_for_needs(messages)
-        increment_usage(user_id, 'ai_analysis')
+        
+        # Увеличиваем счетчик для статистики
+        if user_id not in user_usage:
+            user_usage[user_id] = {'searches_used': 0, 'ai_analysis_used': 0, 'is_premium': True}
+        user_usage[user_id]['ai_analysis_used'] += 1
         
         return jsonify({
             'success': True,
@@ -476,35 +496,88 @@ def check_payment():
         print(f"Ошибка проверки платежа: {e}")
         return jsonify({'error': f'Ошибка проверки: {str(e)}'}), 500
 
-@app.route('/send_auth_code', methods=['POST'])
-def send_auth_code():
-    """Перенаправляем в бота для авторизации"""
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'error': 'Не авторизован'})
-    
-    user_id = session['user_id']
-    bot_username = "my_message_hunter_bot"  # Замени на имя ТВОЕГО бота
-    bot_url = f"https://t.me/{bot_username}?start={user_id}"
-    
-    return jsonify({
-        'success': True, 
-        'redirect_to_bot': True,
-        'bot_url': bot_url
-    })
 
-@app.route('/check_auth_status', methods=['POST'])
-def check_auth_status():
-    """Проверяет статус авторизации"""
-    if 'user_id' not in session:
-        return jsonify({'connected': False})
+
+
+@app.route('/check_api_keys', methods=['GET'])
+def check_api_keys():
+    """Проверяет сохранены ли API ключи и возвращает их для предзаполнения"""
+    try:
+        if os.path.exists('config/api_keys.json'):
+            with open('config/api_keys.json', 'r') as f:
+                config = json.load(f)
+            
+            # Возвращаем данные для предзаполнения формы
+            return jsonify({
+                'has_keys': True, 
+                'api_id': str(config.get('API_ID', '')),
+                'api_hash_masked': config.get('API_HASH', '')[:10] + '...' if config.get('API_HASH') else '',
+                'has_hash': bool(config.get('API_HASH'))
+            })
+        
+        return jsonify({'has_keys': False})
+        
+    except Exception as e:
+        print(f"❌ Ошибка проверки API ключей: {e}")
+        return jsonify({'has_keys': False})
+
+@app.route('/save_api_keys_local', methods=['POST'])
+def save_api_keys_local():
+    """Сохраняет или обновляет API ключи для локального использования"""
+    data = request.json
+    api_id = data.get('api_id', '').strip()
+    api_hash = data.get('api_hash', '').strip()
     
-    user_id = session['user_id']
+    # Валидация API ID (обязательный)
+    if not api_id:
+        return jsonify({'error': 'Введите API ID'}), 400
     
-    # Проверяем через менеджер сессий
-    if session_manager.has_session(user_id):
-        return jsonify({'connected': True, 'success': True})
+    if not api_id.isdigit():
+        return jsonify({'error': 'API ID должен содержать только цифры'}), 400
     
-    return jsonify({'connected': False, 'pending': True})
+    try:
+        global API_ID, API_HASH
+        
+        # Загружаем существующую конфигурацию
+        existing_config = {}
+        if os.path.exists('config/api_keys.json'):
+            with open('config/api_keys.json', 'r') as f:
+                existing_config = json.load(f)
+        
+        # Обновляем API ID
+        API_ID = int(api_id)
+        
+        # Обновляем API Hash только если он передан
+        if api_hash:
+            if len(api_hash) < 32:
+                return jsonify({'error': 'API Hash слишком короткий'}), 400
+            API_HASH = api_hash
+        else:
+            # Если API Hash не передан, используем существующий
+            API_HASH = existing_config.get('API_HASH', API_HASH)
+        
+        # Сохраняем обновленную конфигурацию
+        config = {
+            'API_ID': API_ID,
+            'API_HASH': API_HASH,
+            'updated_at': time.time()
+        }
+        
+        os.makedirs('config', exist_ok=True)
+        with open('config/api_keys.json', 'w') as f:
+            json.dump(config, f, indent=2)
+        
+        print(f"✅ API ключи обновлены: ID={API_ID}, Hash={'обновлен' if api_hash else 'оставлен прежний'}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Настройки сохранены',
+            'updated_hash': bool(api_hash)
+        })
+        
+    except Exception as e:
+        print(f"❌ Ошибка сохранения настроек: {e}")
+        return jsonify({'error': f'Ошибка сохранения: {str(e)}'}), 500
 
 def check_tron_usdt_payment(wallet_address, amount_usdt=10, hours_back=24):
     """Проверка USDT TRC-20 платежей через TronScan API"""
@@ -544,65 +617,54 @@ def check_tron_usdt_payment(wallet_address, amount_usdt=10, hours_back=24):
         print(f"Ошибка проверки платежа: {e}")
         return False, f"Ошибка: {str(e)}"
 
-# Async функции для Telegram API
-async def get_user_groups(client):
-    """Получить список групп где можно писать сообщения"""
+async def get_user_groups_real(client):
+    """Получить реальные группы пользователя"""
     try:
         await client.start()
         
         groups = []
         processed_count = 0
+        
+        print("🔍 Начинаю поиск групп пользователя...")
+        
         async for dialog in client.get_dialogs():
             chat = dialog.chat
             
             if chat.type.name in ["GROUP", "SUPERGROUP"]:
                 try:
-                    if processed_count > 0 and processed_count % 5 == 0:
-                        print(f"⏳ Пауза 3 секунды после {processed_count} групп...")
-                        await asyncio.sleep(3)
+                    groups.append({
+                        'id': str(chat.id),
+                        'title': chat.title or 'Без названия',
+                        'type': chat.type.name,
+                        'members_count': getattr(chat, 'members_count', 0),
+                        'status': '✅ Активная группа'
+                    })
                     
                     processed_count += 1
+                    print(f"✅ Найдена группа: {chat.title}")
                     
-                    recent_messages = []
-                    async for msg in client.get_chat_history(chat.id, limit=5):
-                        recent_messages.append(msg)
-                        break
-                    
-                    if recent_messages:
-                        groups.append({
-                            'id': str(chat.id),
-                            'title': chat.title or 'Без названия',
-                            'type': 'АКТИВНАЯ ГРУППА',
-                            'members_count': getattr(chat, 'members_count', 0),
-                            'status': '✅ Активная группа'
-                        })
-                        print(f"✅ Добавлена группа: {chat.title}")
-                    else:
-                        print(f"❌ Пропущена неактивная группа: {chat.title}")
-                    
-                    await asyncio.sleep(0.5)
-                    
+                    # Небольшая пауза чтобы не получить блокировку
+                    if processed_count % 5 == 0:
+                        await asyncio.sleep(1)
+                        
                 except Exception as e:
-                    if "FLOOD_WAIT" in str(e):
-                        wait_time = int(str(e).split("wait of ")[1].split(" seconds")[0])
-                        print(f"⏳ FLOOD_WAIT: ждём {wait_time} секунд...")
-                        await asyncio.sleep(wait_time + 1)
-                    else:
-                        print(f"❌ Ошибка в группе {chat.title}: {e}")
+                    print(f"❌ Ошибка в группе {chat.title}: {e}")
                     continue
         
         await client.stop()
+        
+        # Сортируем по количеству участников
         groups.sort(key=lambda x: x.get('members_count', 0), reverse=True)
         
-        print(f"✅ ИТОГО найдено {len(groups)} активных групп")
+        print(f"✅ ИТОГО найдено {len(groups)} групп")
         return groups
         
     except Exception as e:
-        print(f"Общая ошибка: {e}")
+        print(f"Общая ошибка получения групп: {e}")
         return []
 
-async def search_in_selected_groups(client, keyword, selected_group_ids):
-    """Функция поиска в выбранных группах"""
+async def search_in_selected_groups_real(client, keyword, selected_group_ids):
+    """Реальный поиск в выбранных группах"""
     try:
         await client.start()
         
@@ -611,10 +673,10 @@ async def search_in_selected_groups(client, keyword, selected_group_ids):
         if not keywords:
             return []
         
-        print(f"Поиск слов: {keywords}")
-        print(f"В выбранных группах: {len(selected_group_ids)}")
+        print(f"🔍 Поиск слов: {keywords}")
+        print(f"📂 В выбранных группах: {len(selected_group_ids)}")
         
-        # Получаем только группы для общения (не каналы)
+        # Получаем группы для поиска
         chat_groups = []
         async for dialog in client.get_dialogs():
             chat = dialog.chat
@@ -622,38 +684,52 @@ async def search_in_selected_groups(client, keyword, selected_group_ids):
                 str(chat.id) in selected_group_ids):
                 chat_groups.append(chat)
         
-        print(f"Найдено выбранных групп для общения: {len(chat_groups)}")
+        print(f"✅ Найдено {len(chat_groups)} групп для поиска")
         
         found_messages = []
         
         for i, chat in enumerate(chat_groups, 1):
             try:
-                print(f"[{i}/{len(chat_groups)}] Ищу в: {chat.title}")
+                print(f"[{i}/{len(chat_groups)}] 🔍 Ищу в: {chat.title}")
                 
-                async for message in client.get_chat_history(chat.id, limit=500):
+                message_count = 0
+                async for message in client.get_chat_history(chat.id, limit=200):
                     if message.text:
                         message_text = message.text.lower()
                         
-                        if any(word in message_text for word in keywords):
+                        # Проверяем есть ли наши ключевые слова
+                        matched_words = [word for word in keywords if word in message_text]
+                        
+                        if matched_words:
                             found_messages.append({
                                 'text': message.text,
-                                'author': message.from_user.username if message.from_user else "Неизвестно",
+                                'author': message.from_user.username if message.from_user and message.from_user.username else "Аноним",
                                 'chat': chat.title,
                                 'date': message.date.strftime("%d.%m.%Y %H:%M"),
-                                'matched_words': [word for word in keywords if word in message_text]
+                                'matched_words': matched_words
                             })
+                            
+                        message_count += 1
                 
+                print(f"  📝 Проверено {message_count} сообщений, найдено совпадений: {len([m for m in found_messages if m['chat'] == chat.title])}")
+                
+                # Пауза между группами
                 await asyncio.sleep(0.5)
                         
             except Exception as e:
-                print(f"Ошибка в {chat.title}: {e}")
+                print(f"❌ Ошибка в группе {chat.title}: {e}")
+                # При ошибке продолжаем с следующей группой
+                continue
         
         await client.stop()
-        print(f"ИТОГО найдено: {len(found_messages)} сообщений")
+        
+        print(f"🎉 ИТОГО найдено: {len(found_messages)} сообщений")
+        
+        # Ограничиваем результаты 50-ю сообщениями
         return found_messages[:50]
         
     except Exception as e:
-        print(f"Ошибка: {e}")
+        print(f"❌ Общая ошибка поиска: {e}")
         return []
 
 if __name__ == '__main__':

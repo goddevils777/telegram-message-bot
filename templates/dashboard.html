@@ -601,13 +601,11 @@
         </div>
         <div class="user-info">
             <div class="usage-stats" id="usageStats">
-                🆓 Бесплатная версия<br>🔍 0/17 | 🤖 0/7
+                💻 Локальная версия<br>🔍 ∞ | 🤖 ∞
             </div>
-            <div class="user-avatar" id="userAvatar">
-                T
-            </div>
-            <span id="userName">Telegram User</span>
-            <a href="/logout" class="logout-btn">Выйти</a>
+            <button class="select-btn" onclick="openSettings()" style="margin-right: 15px;">
+                ⚙️ API Настройки
+            </button>
         </div>
     </div>
     
@@ -719,41 +717,43 @@
             </div>
             <div class="messages" id="aiMessages"></div>
         </div>
-        
-        <!-- Модальное окно оплаты -->
-        <div class="payment-modal" id="paymentModal">
+
+        <!-- Модальное окно API ключей для локального использования -->
+        <div class="payment-modal" id="apiKeysModal" style="display: none;">
             <div class="payment-content">
-                <button class="close-btn" onclick="closePaymentModal()">×</button>
-                <div class="payment-title">💎 Обновление до Premium</div>
+                <button class="close-btn" onclick="closeApiKeysModal()">×</button>
+                <div class="payment-title">🔑 Настройка API ключей</div>
                 
                 <div class="payment-info">
-                    <h3>🚀 Premium возможности:</h3>
-                    <p>✅ Безлимитный поиск сообщений</p>
-                    <p>✅ Безлимитный AI анализ</p>
-                    <p>✅ Приоритетная поддержка</p>
-                    <p>✅ Новые функции первыми</p>
+                    <h3>📋 Получение ключей:</h3>
+                    <p>1. Перейдите на <a href="https://my.telegram.org" target="_blank">my.telegram.org</a></p>
+                    <p>2. Войдите с вашим номером телефона</p>
+                    <p>3. Создайте новое приложение</p>
+                    <p>4. Скопируйте API ID и API Hash</p>
                 </div>
                 
-                <div class="payment-info">
-                    <h3>💰 Стоимость: $10 USDT</h3>
-                    <p>Отправьте <strong>$10 USDT</strong> на кошелек:</p>
-                    <div class="wallet-address" onclick="copyWallet()" id="walletAddress">
-                        Загрузка адреса...
-                    </div>
-                    <p style="font-size: 12px; color: #666;">Нажмите на адрес для копирования</p>
+                <div style="text-align: left; margin: 20px 0;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">API ID:</label>
+                    <input type="text" id="apiIdInput" placeholder="1234567" 
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 15px;">
+                    
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">API Hash:</label>
+                    <input type="text" id="apiHashInput" placeholder="abcdef1234567890abcdef1234567890" 
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
                 </div>
                 
                 <div style="margin-top: 20px;">
-                    <button class="search-btn" onclick="checkPayment()">
-                        ✅ Я отправил оплату
+                    <button class="search-btn" onclick="saveApiKeysLocal()">
+                        ✅ Сохранить настройки
                     </button>
                 </div>
                 
                 <p style="font-size: 12px; color: #666; margin-top: 15px;">
-                    После оплаты доступ активируется в течение 5-10 минут
+                    🔒 Ключи сохраняются только на вашем компьютере
                 </p>
             </div>
         </div>
+
     </div>
     
     <script>
@@ -834,18 +834,12 @@
         }
         
         function updateUsageDisplay() {
-            if (userStats) {
-                const statsEl = document.getElementById('usageStats');
-                if (userStats.is_premium) {
-                    statsEl.innerHTML = '💎 PREMIUM';
-                    statsEl.style.background = 'linear-gradient(45deg, #ffd700, #ffed4a)';
-                    statsEl.style.color = '#333';
-                } else {
-                    statsEl.innerHTML = `🆓 Бесплатная версия<br>🔍 ${userStats.searches_used}/${userStats.searches_used + userStats.searches_remaining} | 🤖 ${userStats.ai_analysis_used}/${userStats.ai_analysis_used + userStats.ai_analysis_remaining}`;
-                    statsEl.style.fontSize = '11px';
-                    statsEl.style.lineHeight = '1.2';
-                }
-            }
+            const statsEl = document.getElementById('usageStats');
+            
+            // Для локальной версии всегда показываем безлимит
+            statsEl.innerHTML = '💻 Локальная версия<br>🔍 ∞ | 🤖 ∞';
+            statsEl.style.background = 'linear-gradient(45deg, #28a745, #20c997)';
+            statsEl.style.color = '#fff';
         }
         
         // Управление вкладками
@@ -1099,9 +1093,7 @@
                 document.getElementById('stopBtn').style.display = 'none';
                 
                 if (data.error) {
-                    if (data.limit_exceeded) {
-                        showPaymentModal();
-                    } else {
+                    if (data.error) {
                         showError(data.error);
                     }
                 } else {
@@ -1324,19 +1316,13 @@
                 return;
             }
             
-            if (lastSearchResults.results.length > 30) {
-                if (!confirm(`У вас ${lastSearchResults.results.length} сообщений. Анализ только первых 30. Продолжить?`)) {
-                    return;
-                }
-            }
-            
             // Показываем загрузку
             document.getElementById('analyzeBtn').disabled = true;
             document.getElementById('analyzeBtn').textContent = '🤖 Анализирую...';
             document.getElementById('aiResults').style.display = 'none';
             
             // Берём максимум 30 сообщений
-            const messagesToAnalyze = lastSearchResults.results.slice(0, 30);
+            const messagesToAnalyze = lastSearchResults.results;
             
             fetch('/analyze_with_ai', {
                 method: 'POST',
@@ -1353,9 +1339,7 @@
                 document.getElementById('analyzeBtn').textContent = '🤖 Анализировать с AI';
                 
                 if (data.error) {
-                    if (data.limit_exceeded) {
-                        showPaymentModal();
-                    } else {
+                    if (data.error) {
                         showError(data.error);
                     }
                 } else {
@@ -1429,129 +1413,146 @@
             aiResultsDiv.scrollIntoView({ behavior: 'smooth' });
         }
         
-        // Функции оплаты
-        function showPaymentModal() {
-            if (userStats && userStats.usdt_wallet) {
-                document.getElementById('walletAddress').textContent = userStats.usdt_wallet;
-            }
-            document.getElementById('paymentModal').style.display = 'block';
-        }
+    
         
-        function closePaymentModal() {
-            document.getElementById('paymentModal').style.display = 'none';
-        }
         
-        function copyWallet() {
-            const walletEl = document.getElementById('walletAddress');
-            navigator.clipboard.writeText(walletEl.textContent).then(() => {
-                const originalText = walletEl.textContent;
-                walletEl.textContent = '✅ Скопировано!';
-                setTimeout(() => {
-                    walletEl.textContent = originalText;
-                }, 2000);
-            });
-        }
         
-        function checkPayment() {
-            const checkBtn = event.target;
-            checkBtn.disabled = true;
-            checkBtn.textContent = '🔍 Проверяю платёж...';
+        
+
+        // Функция для локального сохранения API ключей
+        function saveApiKeysLocal() {
+            const apiId = document.getElementById('apiIdInput').value.trim();
+            const apiHash = document.getElementById('apiHashInput').value.trim();
             
-            fetch('/check_payment', {
+            if (!apiId) {
+                showError('Введите API ID');
+                return;
+            }
+            
+            if (!apiId.match(/^\d+$/)) {
+                showError('API ID должен содержать только цифры');
+                return;
+            }
+            
+            // Если API Hash пустой, не проверяем его (возможно редактирование)
+            if (apiHash && apiHash.length < 32) {
+                showError('API Hash слишком короткий');
+                return;
+            }
+            
+            const saveBtn = event.target;
+            saveBtn.disabled = true;
+            saveBtn.textContent = '🔄 Сохраняю...';
+            
+            const requestData = { api_id: apiId };
+            if (apiHash) {
+                requestData.api_hash = apiHash;
+            }
+            
+            fetch('/save_api_keys_local', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                }
+                },
+                body: JSON.stringify(requestData)
             })
             .then(response => response.json())
             .then(data => {
-                checkBtn.disabled = false;
-                checkBtn.textContent = '✅ Я отправил оплату';
-                
                 if (data.success) {
-                    closePaymentModal();
-                    loadUserStats(); // Обновляем статистику
-                    showError(`🎉 ${data.message}! Хеш: ${data.payment_info.hash.substring(0, 10)}...`);
+                    closeApiKeysModal();
+                    showError('✅ Настройки сохранены!');
+                    
+                    // Обновляем группы если это было полное изменение
+                    if (apiHash) {
+                        setTimeout(() => {
+                            clearCachedGroups(); // Очищаем кэш
+                            loadGroups();
+                        }, 1000);
+                    }
                 } else {
-                    showError(`❌ ${data.message}. Попробуйте через несколько минут.`);
+                    showError(data.error || 'Ошибка сохранения');
                 }
             })
             .catch(error => {
-                checkBtn.disabled = false;
-                checkBtn.textContent = '✅ Я отправил оплату';
-                showError('Ошибка проверки платежа');
+                showError('Ошибка соединения');
                 console.error('Error:', error);
+            })
+            .finally(() => {
+                saveBtn.disabled = false;
+                saveBtn.textContent = '✅ Сохранить настройки';
             });
         }
-        
+
+        function closeApiKeysModal() {
+            document.getElementById('apiKeysModal').style.display = 'none';
+        }
+        // Функция открытия настроек
+        function openSettings() {
+            console.log('⚙️ Открываем настройки...');
+            
+            // Заполняем текущие значения из сохраненных настроек
+            fetch('/check_api_keys')
+            .then(r => r.json())
+            .then(data => {
+                console.log('📋 Данные для настроек:', data);
+                
+                if (data.has_keys) {
+                    // Заполняем API ID текущим значением
+                    document.getElementById('apiIdInput').value = data.api_id || '';
+                    
+                    // Для API Hash оставляем поле пустым, но меняем placeholder
+                    document.getElementById('apiHashInput').value = '';
+                    document.getElementById('apiHashInput').placeholder = `Текущий: ${data.api_hash_masked} (оставьте пустым чтобы не менять)`;
+                    
+                    console.log('✅ Поля заполнены текущими значениями');
+                } else {
+                    // Если ключей нет, показываем обычные placeholder'ы
+                    document.getElementById('apiIdInput').value = '';
+                    document.getElementById('apiHashInput').value = '';
+                    document.getElementById('apiHashInput').placeholder = 'Введите API Hash';
+                }
+            })
+            .catch(e => {
+                console.log('❌ Ошибка загрузки настроек:', e);
+                // При ошибке показываем обычные placeholder'ы
+                document.getElementById('apiIdInput').value = '';
+                document.getElementById('apiHashInput').value = '';
+                document.getElementById('apiHashInput').placeholder = 'Введите API Hash';
+            });
+            
+            // Показываем модальное окно настроек
+            document.getElementById('apiKeysModal').style.display = 'block';
+        }
         // Единая функция инициализации
         function initializeApp() {
             console.log('🚀 Инициализация приложения...');
             
-            // 1. Загружаем статистику
-            fetch('/get_user_stats')
-                .then(r => r.json())
-                .then(data => {
-                    userStats = data;
-                    updateUsageDisplay();
-                    console.log('✅ Статистика загружена');
-                })
-                .catch(e => console.log('❌ Ошибка статистики'));
-            
-            // 2. Загружаем Telegram пользователя
-            fetch('/get_telegram_user_info')
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success && data.user_info) {
-                        const user = data.user_info;
-                        const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-                        const finalName = fullName || user.username || 'Mirror';
-                        
-                        // Устанавливаем имя
-                        document.getElementById('userName').textContent = finalName;
-                        console.log('✅ Имя установлено:', finalName);
-                        
-                        // Устанавливаем аватар
-                        const avatarEl = document.getElementById('userAvatar');
-                        if (user.avatar_data) {
-                            avatarEl.innerHTML = `<img src="data:image/jpeg;base64,${user.avatar_data}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
-                            console.log('✅ Аватар установлен');
-                        } else {
-                            const letter = user.first_name ? user.first_name[0] : (user.username ? user.username[0] : 'M');
-                            avatarEl.textContent = letter.toUpperCase();
-                            console.log('✅ Буква установлена:', letter);
-                        }
-                    } else {
-                        // Fallback
-                        document.getElementById('userName').textContent = 'Mirror';
-                        document.getElementById('userAvatar').textContent = 'M';
-                        console.log('✅ Fallback установлен');
-                    }
-                })
-                .catch(e => {
-                    // Fallback при ошибке
-                    document.getElementById('userName').textContent = 'Mirror';
-                    document.getElementById('userAvatar').textContent = 'M';
-                    console.log('✅ Fallback при ошибке');
-                });
-            
-            // 3. Загружаем группы в фоне (с проверкой кэша)
-            setTimeout(() => {
-                if (typeof loadGroups === 'function') {
-                    loadGroups(); // Функция сама проверит кэш
-                    console.log('✅ Загрузка групп запущена');
-                }
-            }, 2000);
-            
-            // 4. Загружаем историю в фоне
-            setTimeout(() => {
-                if (typeof loadHistory === 'function') {
+            // Проверяем есть ли API ключи
+            fetch('/check_api_keys')
+            .then(r => r.json())
+            .then(data => {
+                if (data.has_keys) {
+                    // API ключи есть - скрываем модальное окно и загружаем данные
+                    console.log('✅ API ключи найдены, скрываем модальное окно');
+                    document.getElementById('apiKeysModal').style.display = 'none';
+                    loadGroups();
                     loadHistory();
-                    console.log('✅ Загрузка истории запущена');
+                } else {
+                    // API ключей нет - показываем модальное окно
+                    console.log('❌ API ключи не найдены, показываем модальное окно');
+                    document.getElementById('apiKeysModal').style.display = 'block';
                 }
-            }, 3000);
+            })
+            .catch(e => {
+                console.log('❌ Ошибка проверки API ключей:', e);
+                document.getElementById('apiKeysModal').style.display = 'block';
+            });
+            
+            // Загружаем статистику и информацию о пользователе
+            loadUserStats();
+            loadTelegramUserInfo();
         }
-        
+
         // ЕДИНСТВЕННЫЙ запуск через 1 секунду
         setTimeout(initializeApp, 1000);
     </script>

