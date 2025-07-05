@@ -41,6 +41,12 @@
             gap: 15px;
         }
         
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+            margin-right: 15px;
+        }
+        
         .usage-stats {
             background: rgba(255,255,255,0.9);
             padding: 8px 15px;
@@ -242,11 +248,24 @@
             cursor: pointer;
             font-size: 14px;
             transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
         }
         
         .select-btn:hover {
             background: #0088cc;
             color: white;
+        }
+        
+        .help-btn {
+            background: #28a745;
+            color: white;
+            border: 2px solid #28a745;
+        }
+        
+        .help-btn:hover {
+            background: #218838;
+            border-color: #218838;
         }
         
         .search-section {
@@ -592,6 +611,151 @@
             margin-top: 20px;
             display: none;
         }
+        .header-buttons {
+    display: flex;
+    gap: 10px;
+    margin-right: 15px;
+}
+
+.help-btn {
+    background: #28a745;
+    color: white;
+    border: 2px solid #28a745;
+    text-decoration: none;
+}
+
+.help-btn:hover {
+    background: #218838;
+    border-color: #218838;
+}
+
+/* Стили для управления аккаунтами */
+.account-item {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid #f1f3f4;
+    transition: background 0.2s;
+}
+
+.account-item:hover {
+    background: #f8f9fa;
+}
+
+.account-item:last-child {
+    border-bottom: none;
+}
+
+.account-toggle {
+    margin-right: 15px;
+    width: 20px;
+    height: 20px;
+    transform: scale(1.2);
+}
+
+.account-info {
+    flex: 1;
+}
+
+.account-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.account-details {
+    font-size: 12px;
+    color: #666;
+}
+
+.account-status {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 10px;
+}
+
+.status-active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-inactive {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.stats-card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    border: 2px solid #e1e8ed;
+}
+
+.stats-number {
+    font-size: 32px;
+    font-weight: bold;
+    color: #0088cc;
+    margin-bottom: 5px;
+}
+
+.stats-label {
+    font-size: 14px;
+    color: #666;
+}
+
+.parallel-search-results {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    overflow: hidden;
+    display: none;
+    margin-top: 20px;
+}
+
+.parallel-search-results .results-header {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    color: white;
+}
+
+.account-tag {
+    display: inline-block;
+    background: #0088cc;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-size: 10px;
+    margin-left: 5px;
+    font-weight: 600;
+}
+
+.disabled-account {
+    opacity: 0.5;
+    background: #f8f9fa;
+}
+
+.disabled-account .group-checkbox {
+    cursor: not-allowed;
+}
+
+.account-status {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    margin-left: 8px;
+}
+
+.status-active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-inactive {
+    background: #f8d7da;
+    color: #721c24;
+}
     </style>
 </head>
 <body>
@@ -599,29 +763,75 @@
         <div class="logo">
             🔍 Message Hunter
         </div>
-        <div class="user-info">
-            <div class="usage-stats" id="usageStats">
-                💻 Локальная версия<br>🔍 ∞ | 🤖 ∞
-            </div>
-            <button class="select-btn" onclick="openSettings()" style="margin-right: 15px;">
-                ⚙️ API Настройки
-            </button>
-        </div>
+<div class="user-info">
+<div class="usage-stats" id="accountInfo" style="margin-left: 10px; background: #28a745;">
+    👤 Загружаю аккаунт...
+</div>
+<button class="select-btn" onclick="switchAccount()" style="margin-left: 10px;">
+    🔄 Сменить аккаунт
+</button>
+    <div style="display: flex; gap: 10px; margin-right: 15px;">
+        <a href="/help" style="padding: 10px 20px; border: 2px solid #28a745; background: #28a745; color: white; border-radius: 20px; cursor: pointer; font-size: 14px; transition: all 0.3s; text-decoration: none; display: inline-block;">
+            📚 Справка
+        </a>
+        <button class="select-btn" onclick="openSettings()">
+            ⚙️ API Настройки
+        </button>
+    </div>
+</div>
     </div>
     
     <div class="container">
         <div class="tabs">
+            <button class="tab" onclick="switchTab('accounts')">👥 Управление аккаунтами</button>
             <button class="tab active" onclick="switchTab('search')">🔍 Поиск сообщений</button>
-            <button class="tab" onclick="switchTab('groups')">📂 Выбор групп</button>
-            <button class="tab" onclick="switchTab('history')">📋 История поиска</button>
+            <button class="tab" onclick="switchTab('broadcast')">📤 Рассылка</button>
+            <button class="tab" onclick="switchTab('history')">📋 История</button>
+        </div>
+<!-- Вкладка поиска -->
+<div class="tab-content active" id="search-tab">
+    <h1 class="search-title">🔍 Поиск сообщений</h1>
+    <p class="search-subtitle">Найдите нужные сообщения в выбранных Telegram группах</p>
+    
+                        
+            <div class="search-form">
+<!-- Настройки глубины поиска -->
+    <div style="background: #f8f9fa; padding: 15px; border-radius: 15px; margin-bottom: 20px;">
+        <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+            <label style="font-weight: 600; color: #333;">
+                📊 Искать последних сообщений в каждой группе:
+            </label>
+            <input type="number" 
+                   id="searchDepth" 
+                   min="1" 
+                   max="10000" 
+                   value="500"
+                   placeholder="500"
+                   style="padding: 10px 15px; border: 2px solid #e1e8ed; border-radius: 10px; font-size: 16px; width: 120px;">
+            <span style="color: #666; font-size: 14px;">
+                (от 1 до 10000)
+            </span>
+        </div>
+    </div>
+    <!-- Выбор групп для поиска -->
+    <div style="background: #f8f9fa; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="color: #333;">📂 Выбор групп для поиска</h3>
+            <button class="select-btn" onclick="forceReloadGroups()">🔄 Обновить список</button>
         </div>
         
-        <!-- Вкладка поиска -->
-        <div class="tab-content active" id="search-tab">
-            <h1 class="search-title">Поиск сообщений</h1>
-            <p class="search-subtitle">Найдите нужные сообщения в выбранных Telegram группах</p>
-            
-            <div class="search-form">
+        <div class="groups-actions">
+            <button class="select-btn" onclick="selectAllGroups()">✅ Выбрать все</button>
+            <button class="select-btn" onclick="deselectAllGroups()">❌ Убрать все</button>
+            <span style="margin-left: 20px; color: #666;" id="selectedCount">Выбрано: 0 групп</span>
+        </div>
+        
+        <div class="groups-container" id="groupsContainer">
+            <div style="text-align: center; padding: 20px; color: #666;">
+                Загрузка групп...
+            </div>
+        </div>
+    </div>
                 <div class="keyword-input-section">
                     <input type="text" 
                            class="search-input" 
@@ -645,44 +855,36 @@
                     <button class="stop-btn" id="stopBtn" onclick="stopSearch()">
                         ⏹️ Остановить поиск
                     </button>
+                    <button class="save-btn" id="clearBtn" onclick="clearAllResults()" style="background: #dc3545; display: none;">
+                        🗑️ Сбросить найденное
+                    </button>
                     <button class="save-btn" id="saveBtn" onclick="saveCurrentSearch()">
                         💾 Сохранить в историю
                     </button>
-                    <button class="save-btn" id="analyzeBtn" onclick="analyzeWithAI()" style="background: #6f42c1;">
+                    <button class="save-btn" id="analyzeBtn" onclick="openAiPromptModal()" style="background: #6f42c1;">
                         🤖 Анализировать с AI
                     </button>
                 </div>
             </div>
             
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                Поиск по группам... Это может занять несколько минут
-            </div>
+           <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div id="loadingText">Начинаем глубокий поиск...</div>
+    <div id="progressInfo" style="margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px; font-size: 14px; color: #555;">
+        <div id="groupProgress" style="margin-bottom: 5px;">Подготовка...</div>
+        <div id="foundProgress">Найдено сообщений: 0</div>
+        <div style="margin-top: 10px; font-size: 12px; color: #666;">
+            ⚠️ <strong>Глубокий поиск:</strong> анализируем до 5000 сообщений в каждой группе<br>
+            ⏱️ Время поиска: 3-10 минут в зависимости от количества групп<br>
+            💡 Больше сообщений = больше потенциальных клиентов
+        </div>
+    </div>
+</div>
             
             <div class="error" id="error"></div>
         </div>
         
-        <!-- Вкладка выбора групп -->
-        <div class="tab-content" id="groups-tab">
-            <h1 class="search-title">Выбор групп для поиска</h1>
-            <p class="search-subtitle">Выберите группы в которых будет происходить поиск</p>
-            
-            <div class="groups-actions">
-                <button class="select-btn" onclick="selectAllGroups()">✅ Выбрать все</button>
-                <button class="select-btn" onclick="deselectAllGroups()">❌ Убрать все</button>
-                <button class="select-btn" onclick="forceReloadGroups()">🔄 Обновить список</button>
-            </div>
-            
-            <div class="groups-container" id="groupsContainer">
-                <div style="text-align: center; padding: 20px; color: #666;">
-                    Загрузка групп...
-                </div>
-            </div>
-            
-            <div style="margin-top: 20px; color: #666; font-size: 14px;">
-                <span id="selectedCount">Выбрано: 0 групп</span>
-            </div>
-        </div>
+
         
         <!-- Вкладка истории поиска -->
         <div class="tab-content" id="history-tab">
@@ -698,6 +900,146 @@
                 <div style="text-align: center; padding: 20px; color: #666;">
                     История пуста
                 </div>
+            </div>
+        </div>
+
+        <!-- Вкладка рассылки -->
+        <div class="tab-content" id="broadcast-tab">
+            <h1 class="search-title">📤 Рассылка сообщений</h1>
+            <p class="search-subtitle">Отправка сообщений в выбранные группы по расписанию</p>
+            
+            <!-- Текст сообщения -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+                <h3 style="color: #333; margin-bottom: 15px;">✏️ Текст сообщения</h3>
+                <textarea 
+                    id="broadcastMessage" 
+                    placeholder="Напишите сообщение для рассылки..."
+                    style="width: 100%; height: 120px; padding: 15px; border: 2px solid #e1e8ed; border-radius: 10px; font-size: 16px; resize: vertical; font-family: inherit;"
+                ></textarea>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 14px; color: #666;">
+                    <span>💡 Можно использовать форматирование Telegram</span>
+                    <span id="messageLength">0 символов</span>
+                </div>
+            </div>
+            
+            <!-- Выбор групп для рассылки -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+                <h3 style="color: #333; margin-bottom: 15px;">📂 Группы для рассылки</h3>
+                <div class="groups-actions">
+                    <button class="select-btn" onclick="selectAllBroadcastGroups()">✅ Выбрать все</button>
+                    <button class="select-btn" onclick="deselectAllBroadcastGroups()">❌ Убрать все</button>
+                    <span style="margin-left: 20px; color: #666;" id="selectedBroadcastCount">Выбрано: 0 групп</span>
+                </div>
+                <div class="groups-container" id="broadcastGroupsContainer" style="max-height: 300px;">
+                    <div style="text-align: center; padding: 20px; color: #666;">
+                        Группы загружаются...
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Настройки времени -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+                <h3 style="color: #333; margin-bottom: 15px;">⏰ Настройки отправки</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <label style="display: block; font-weight: 600; margin-bottom: 5px;">📅 Дата отправки:</label>
+                        <input type="date" id="broadcastDate" 
+                            style="width: 100%; padding: 10px; border: 2px solid #e1e8ed; border-radius: 10px;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-weight: 600; margin-bottom: 5px;">🕐 Время отправки:</label>
+                        <input type="time" id="broadcastTime" 
+                            style="width: 100%; padding: 10px; border: 2px solid #e1e8ed; border-radius: 10px;">
+                    </div>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 5px;">🔄 Периодичность:</label>
+                    <select id="broadcastRepeat" style="width: 100%; padding: 10px; border: 2px solid #e1e8ed; border-radius: 10px;">
+                        <option value="once">Однократно</option>
+                        <option value="daily">Каждый день</option>
+                        <option value="weekly">Каждую неделю</option>
+                        <option value="monthly">Каждый месяц</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Кнопка отправки -->
+            <div style="text-align: center;">
+                <button class="search-btn" onclick="scheduleBroadcast()" style="font-size: 18px; padding: 20px 40px;">
+                    📤 Поставить задачу на рассылку
+                </button>
+            </div>
+
+
+            <!-- Статус задач рассылки -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 15px; margin-top: 30px;">
+                <h3 style="color: #333; margin-bottom: 15px;">📊 Статус задач рассылки</h3>
+                <div class="groups-actions">
+                    <button class="select-btn" onclick="loadBroadcastTasks()">🔄 Обновить статус</button>
+                </div>
+                <div id="broadcastTasksContainer" style="max-height: 400px; overflow-y: auto; margin-top: 15px;">
+                    <div style="text-align: center; padding: 20px; color: #666;">
+                        Нажмите "Обновить статус" для загрузки задач
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Вкладка управления аккаунтами -->
+        <div class="tab-content" id="accounts-tab">
+            <h1 class="search-title">👥 Управление аккаунтами</h1>
+            <p class="search-subtitle">Активируйте несколько аккаунтов для параллельной работы</p>
+            
+            <!-- Статистика активных аккаунтов -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="color: #333;">📊 Статистика аккаунтов</h3>
+                    <button class="select-btn" onclick="loadMultiAccounts()">🔄 Обновить</button>
+                </div>
+                <div id="accountsStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div style="text-align: center; padding: 20px; color: #666;">Загрузка...</div>
+                </div>
+            </div>
+            
+            <!-- Список всех аккаунтов -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+                <h3 style="color: #333; margin-bottom: 15px;">📋 Все аккаунты</h3>
+                <div class="groups-container" id="multiAccountsContainer" style="max-height: 400px;">
+                    <div style="text-align: center; padding: 20px; color: #666;">
+                        Загрузка аккаунтов...
+                    </div>
+                </div>
+            </div>
+<!-- Выбор аккаунтов для поиска -->
+<div style="background: #fff3e0; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="color: #e65100;">👥 Выбор аккаунтов для поиска</h3>
+        <button class="select-btn" onclick="loadSearchAccounts()">🔄 Обновить список</button>
+    </div>
+    
+    <div class="groups-actions">
+        <button class="select-btn" onclick="selectAllSearchAccounts()">✅ Выбрать все</button>
+        <button class="select-btn" onclick="deselectAllSearchAccounts()">❌ Убрать все</button>
+        <span style="margin-left: 20px; color: #666;" id="selectedAccountsCount">Выбрано: 0 аккаунтов</span>
+    </div>
+    
+    <div class="groups-container" id="searchAccountsContainer" style="max-height: 200px;">
+        <div style="text-align: center; padding: 20px; color: #666;">
+            Загрузка аккаунтов...
+        </div>
+    </div>
+    
+    <div style="font-size: 12px; color: #666; margin-top: 10px;">
+        💡 Если выбрано несколько аккаунтов, группы автоматически распределятся между ними для ускорения поиска
+    </div>
+</div>
+            
+            <!-- Добавление нового аккаунта -->
+            <div style="text-align: center;">
+                <button class="search-btn" onclick="addNewAccount()" style="background: #0088cc;">
+                    ➕ Добавить новый аккаунт
+                </button>
             </div>
         </div>
         
@@ -754,6 +1096,48 @@
             </div>
         </div>
 
+        <!-- Модальное окно AI промпта -->
+<div class="payment-modal" id="aiPromptModal" style="display: none;">
+    <div class="payment-content" style="max-width: 600px;">
+        <button class="close-btn" onclick="closeAiPromptModal()">×</button>
+        <div class="payment-title">🤖 AI Анализ сообщений</div>
+        
+        <div class="payment-info">
+            <h3>📝 Что искать в сообщениях:</h3>
+            <p>Опишите какие именно сообщения вас интересуют</p>
+        </div>
+        
+        <div style="text-align: left; margin: 20px 0;">
+            <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #333;">
+                🎯 Ваш промпт для AI:
+            </label>
+            <textarea 
+                id="aiPromptInput" 
+                placeholder="Найди те сообщения где человек реально ищет что-то купить"
+                style="width: 100%; height: 120px; padding: 15px; border: 2px solid #e1e8ed; border-radius: 10px; font-size: 14px; resize: vertical; font-family: inherit;"
+            >Найди те сообщения где человек реально ищет что-то купить</textarea>
+            
+            <div style="font-size: 12px; color: #666; margin-top: 10px;">
+                💡 Примеры: "Ищу фрилансера для сайта", "Нужен репетитор по математике", "Куплю iPhone 15"
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 15px; margin-top: 20px;">
+            <button class="search-btn" onclick="startAiAnalysisWithPrompt()" style="flex: 1;">
+                🤖 Начать анализ
+            </button>
+            <button class="back-btn" onclick="closeAiPromptModal()" style="flex: 0 0 auto;">
+                Отмена
+            </button>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-top: 20px; font-size: 13px; color: #666;">
+            <strong>🔍 Как это работает:</strong><br>
+            AI проанализирует найденные сообщения и выберет только те, которые соответствуют вашему запросу
+        </div>
+    </div>
+</div>
+
     </div>
     
     <script>
@@ -765,62 +1149,19 @@
         let userStats = null;
         let telegramUserInfo = null;
         let groupsLoaded = false; // Флаг загрузки групп
+        // ← ДОБАВЬ ЭТИ НОВЫЕ ПЕРЕМЕННЫЕ
+        let allSearchResults = []; // Все результаты поиска
+        let displayedResults = 0;  // Сколько уже показано
+        let resultsPerPage = 50;   // Показывать по 50 за раз
+        let isLoadingMore = false; // Флаг загрузки
+        // Переменные для рассылки
+        let selectedBroadcastGroups = [];
+        let broadcastTasks = []; // Список запланированных задач
+        // Переменные для выбора аккаунтов в поиске
+        let searchAccounts = [];
+        let selectedSearchAccounts = [];
         
-        // Загрузка информации о Telegram пользователе
-        function loadTelegramUserInfo() {
-            console.log('📱 Загружаю информацию о пользователе...');
-            
-            fetch('/get_telegram_user_info')
-            .then(response => {
-                console.log('Ответ сервера:', response.status);
-                return response.json();
-            })
-            .then(data => {
-                console.log('Данные пользователя:', data);
-                if (data.success) {
-                    telegramUserInfo = data.user_info;
-                    updateUserDisplay();
-                } else {
-                    console.error('Ошибка загрузки пользователя:', data.error);
-                    // Показываем fallback
-                    document.getElementById('userName').textContent = 'Пользователь';
-                }
-            })
-            .catch(error => {
-                console.error('Ошибка запроса пользователя:', error);
-                // Показываем fallback
-                document.getElementById('userName').textContent = 'Пользователь';
-            });
-        }
-        
-        function updateUserDisplay() {
-            console.log('🎨 Обновляю отображение пользователя:', telegramUserInfo);
-            
-            if (telegramUserInfo) {
-                const userNameEl = document.getElementById('userName');
-                const userAvatarEl = document.getElementById('userAvatar');
-                
-                // Обновляем имя
-                const fullName = `${telegramUserInfo.first_name} ${telegramUserInfo.last_name}`.trim();
-                const displayName = fullName || telegramUserInfo.username || 'Пользователь';
-                userNameEl.textContent = displayName;
-                console.log('Имя установлено:', displayName);
-                
-                // Обновляем аватар
-                if (telegramUserInfo.avatar_data) {
-                    userAvatarEl.innerHTML = `<img src="data:image/jpeg;base64,${telegramUserInfo.avatar_data}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
-                    console.log('Аватар загружен');
-                } else {
-                    // Показываем первую букву имени
-                    const firstLetter = telegramUserInfo.first_name ? telegramUserInfo.first_name[0] : 
-                                       telegramUserInfo.username ? telegramUserInfo.username[0] : '?';
-                    userAvatarEl.textContent = firstLetter.toUpperCase();
-                    console.log('Показана первая буква:', firstLetter);
-                }
-            } else {
-                console.log('❌ Нет данных пользователя');
-            }
-        }
+
         
         // Загрузка статистики пользователя
         function loadUserStats() {
@@ -828,19 +1169,10 @@
             .then(response => response.json())
             .then(data => {
                 userStats = data;
-                updateUsageDisplay();
             })
             .catch(error => console.error('Error loading stats:', error));
         }
         
-        function updateUsageDisplay() {
-            const statsEl = document.getElementById('usageStats');
-            
-            // Для локальной версии всегда показываем безлимит
-            statsEl.innerHTML = '💻 Локальная версия<br>🔍 ∞ | 🤖 ∞';
-            statsEl.style.background = 'linear-gradient(45deg, #28a745, #20c997)';
-            statsEl.style.color = '#fff';
-        }
         
         // Управление вкладками
         function switchTab(tabName) {
@@ -852,7 +1184,16 @@
             document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
             document.getElementById(`${tabName}-tab`).classList.add('active');
             
-            // Группы и история уже загружаются автоматически при входе на сайт
+            // Загружаем данные для вкладок
+            if (tabName === 'broadcast' && allGroups.length > 0) {
+                displayBroadcastGroups();
+                setDefaultDateTime();
+            }
+
+            if (tabName === 'accounts') {
+                loadMultiAccounts();
+            }
+            
             console.log(`Переключились на вкладку: ${tabName}`);
         }
         
@@ -1055,6 +1396,8 @@
                 ).join('');
             }
         }
+
+        
         
         function performSearch() {
             if (keywords.length === 0) {
@@ -1067,6 +1410,11 @@
                 return;
             }
             
+            if (selectedSearchAccounts.length === 0) {
+                showError('Выберите хотя бы один аккаунт для поиска');
+                return;
+            }
+            
             searchAbortController = new AbortController();
             
             document.getElementById('loading').style.display = 'block';
@@ -1075,15 +1423,30 @@
             document.getElementById('searchBtn').disabled = true;
             document.getElementById('stopBtn').style.display = 'inline-block';
             
-            fetch('/search', {
+            // Определяем тип поиска
+            const isMultiAccountSearch = selectedSearchAccounts.length > 1;
+            const searchEndpoint = isMultiAccountSearch ? '/parallel_search' : '/search';
+            
+            console.log(`🔍 Запуск поиска: ${isMultiAccountSearch ? 'множественный' : 'одиночный'}`);
+            console.log(`Аккаунты: ${selectedSearchAccounts.join(', ')}`);
+            
+            const requestBody = {
+                keyword: keywords.join(' '),
+                selected_groups: selectedGroups,
+                search_depth: getSearchDepth()
+            };
+            
+            // Для множественного поиска добавляем аккаунты
+            if (isMultiAccountSearch) {
+                requestBody.accounts = selectedSearchAccounts;
+            }
+            
+            fetch(searchEndpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ 
-                    keyword: keywords.join(' '),
-                    selected_groups: selectedGroups
-                }),
+                body: JSON.stringify(requestBody),
                 signal: searchAbortController.signal
             })
             .then(response => response.json())
@@ -1093,19 +1456,19 @@
                 document.getElementById('stopBtn').style.display = 'none';
                 
                 if (data.error) {
-                    if (data.error) {
-                        showError(data.error);
-                    }
+                    showError(data.error);
                 } else {
                     lastSearchResults = {
                         keywords: keywords.slice(),
                         results: data.results,
-                        groups_count: selectedGroups.length
+                        groups_count: selectedGroups.length,
+                        accounts_used: data.accounts_used || [selectedSearchAccounts[0]],
+                        is_multi_account: isMultiAccountSearch
                     };
-                    showResults(data.results, keywords.join(', '));
+                    
+                    showResults(data.results, keywords.join(', '), data.accounts_used);
                     document.getElementById('saveBtn').style.display = 'inline-block';
                     document.getElementById('analyzeBtn').style.display = 'inline-block';
-                    loadUserStats(); // Обновляем статистику
                 }
             })
             .catch(error => {
@@ -1121,24 +1484,164 @@
                 document.getElementById('stopBtn').style.display = 'none';
             });
         }
-        
-        function stopSearch() {
-            if (searchAbortController) {
-                searchAbortController.abort();
-                searchAbortController = null;
+
+        function updateSearchProgress(text, current, total, found) {
+            document.getElementById('loadingText').textContent = text;
+            document.getElementById('groupProgress').textContent = `Обработано групп: ${current} из ${total}`;
+            document.getElementById('foundProgress').textContent = `Найдено сообщений: ${found}`;
+        }
+
+        function simulateSearchProgress() {
+    let currentGroup = 0;
+    let foundMessages = 0;
+    let processedMessages = 0;
+    const totalGroups = selectedGroups.length;
+    const messagesPerGroup = 5000;
+    
+    const progressInterval = setInterval(() => {
+        if (currentGroup < totalGroups) {
+            // Имитируем обработку сообщений в группе
+            if (processedMessages < messagesPerGroup) {
+                processedMessages += 500;
+                foundMessages += Math.floor(Math.random() * 5);
+                
+                updateSearchProgress(
+                    `Группа ${currentGroup + 1}: обработано ${processedMessages}/${messagesPerGroup} сообщений`,
+                    currentGroup,
+                    totalGroups,
+                    foundMessages
+                );
+            } else {
+                // Переходим к следующей группе
+                currentGroup++;
+                processedMessages = 0;
+                updateSearchProgress(
+                    `Завершена группа ${currentGroup}. Переходим к следующей...`,
+                    currentGroup,
+                    totalGroups,
+                    foundMessages
+                );
+            }
+        } else {
+            clearInterval(progressInterval);
+            updateSearchProgress(
+                'Завершаем глубокий поиск...',
+                totalGroups,
+                totalGroups,
+                foundMessages
+            );
+        }
+    }, 800); // Обновляем каждые 800мс для реалистичности
+    
+    // Останавливаем имитацию через 2 минуты
+    setTimeout(() => {
+        clearInterval(progressInterval);
+    }, 120000);
+}
+
+        function startProgressiveSearch() {
+            fetch('/search_progressive', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    keyword: keywords.join(' '),
+                    selected_groups: selectedGroups
+                }),
+                signal: searchAbortController.signal
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Network error');
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let allResults = [];
+                
+                function readStream() {
+                    return reader.read().then(({ done, value }) => {
+                        if (done) {
+                            // Поиск завершен
+                            finishSearch(allResults);
+                            return;
+                        }
+                        
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split('\n');
+                        
+                        for (const line of lines) {
+                            if (line.trim() && line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.replace('data: ', ''));
+                                    handleProgressUpdate(data, allResults);
+                                } catch (e) {
+                                    console.log('Ошибка парсинга:', e);
+                                }
+                            }
+                        }
+                        
+                        return readStream();
+                    });
+                }
+                
+                return readStream();
+            })
+            .catch(error => {
+                if (error.name === 'AbortError') {
+                    showError('Поиск остановлен пользователем');
+                } else {
+                    showError('Произошла ошибка при поиске: ' + error.message);
+                    console.error('Error:', error);
+                }
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('searchBtn').disabled = false;
+                document.getElementById('stopBtn').style.display = 'none';
+            });
+        }
+
+        function handleProgressUpdate(data, allResults) {
+            if (data.type === 'progress') {
+                updateProgress(data.current_group, data.total_groups, data.total_found);
+            } else if (data.type === 'group_start') {
+                updateLoadingText(`Поиск в группе: ${data.group_name}`);
+            } else if (data.type === 'results') {
+                // Добавляем новые результаты
+                allResults.push(...data.messages);
+                
+                // Показываем результаты сразу
+                if (allResults.length > 0) {
+                    showPartialResults(allResults, keywords.join(', '));
+                }
+            } else if (data.type === 'error') {
+                console.error('Ошибка поиска:', data.error);
             }
         }
-        
-        function showResults(results, keyword) {
+
+        function updateProgress(current, total, found) {
+            document.getElementById('groupProgress').textContent = `Группа: ${current} из ${total}`;
+            document.getElementById('foundProgress').textContent = `Найдено: ${found} сообщений`;
+        }
+
+        function updateLoadingText(text) {
+            document.getElementById('loadingText').textContent = text;
+        }
+
+        function showPartialResults(results, keyword) {
             const resultsDiv = document.getElementById('results');
             const messagesDiv = document.getElementById('messages');
             const countDiv = document.getElementById('resultsCount');
             
-            countDiv.textContent = `Найдено ${results.length} сообщений по словам: ${keyword} в ${selectedGroups.length} группах`;
+            countDiv.innerHTML = `
+                Найдено ${results.length} сообщений по словам: ${keyword} в ${selectedGroups.length} группах
+                <br><small style="color: #666; font-size: 12px;">📅 Отсортированы по дате: сначала новые</small>
+            `;
+            
+            // Показываем только последние 50 результатов для производительности
+            const displayResults = results.slice(-50);
             
             messagesDiv.innerHTML = '';
-            
-            results.forEach((msg, index) => {
+            displayResults.forEach((msg, index) => {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = 'message';
                 messageDiv.innerHTML = `
@@ -1163,6 +1666,342 @@
             });
             
             resultsDiv.style.display = 'block';
+            
+            // Прокручиваем к новым результатам
+            if (displayResults.length > 0) {
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+        }
+
+        function finishSearch(allResults) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('searchBtn').disabled = false;
+            document.getElementById('stopBtn').style.display = 'none';
+            
+            if (allResults.length > 0) {
+                lastSearchResults = {
+                    keywords: keywords.slice(),
+                    results: allResults,
+                    groups_count: selectedGroups.length
+                };
+                
+                // Показываем финальные результаты
+                showResults(allResults, keywords.join(', '));
+                document.getElementById('saveBtn').style.display = 'inline-block';
+                document.getElementById('analyzeBtn').style.display = 'inline-block';
+                document.getElementById('clearBtn').style.display = 'inline-block';
+                
+                loadUserStats();
+            } else {
+                showError('Сообщения не найдены');
+            }
+        }
+        
+        function stopSearch() {
+            if (searchAbortController) {
+                // Отменяем HTTP запрос
+                searchAbortController.abort();
+                searchAbortController = null;
+                
+                // Отправляем сигнал серверу об остановке
+                fetch('/stop_search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showError('🛑 Поиск остановлен');
+                        console.log('✅ Сигнал остановки отправлен серверу');
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка отправки сигнала остановки:', error);
+                });
+                
+                // Сбрасываем интерфейс
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('searchBtn').disabled = false;
+                document.getElementById('stopBtn').style.display = 'none';
+            }
+        }
+        
+        function showResults(results, keyword, accountsUsed = []) {
+            allSearchResults = results;
+            displayedResults = 0;
+            
+            const resultsDiv = document.getElementById('results');
+            const messagesDiv = document.getElementById('messages');
+            const countDiv = document.getElementById('resultsCount');
+            
+            const accountsInfo = accountsUsed && accountsUsed.length > 1 
+                ? `<br><small style="color: #666; font-size: 12px;">👥 Использовано аккаунтов: ${accountsUsed.join(', ')}</small>`
+                : '';
+            
+            countDiv.innerHTML = `
+                Найдено ${results.length} сообщений по словам: ${keyword} в ${selectedGroups.length} группах
+                <br><small style="color: #666; font-size: 12px;">📅 Отсортированы по дате: сначала новые • Скролль для загрузки еще</small>
+                ${accountsInfo}
+            `;
+            
+            messagesDiv.innerHTML = '';
+            resultsDiv.style.display = 'block';
+            
+            loadMoreResults();
+            addScrollListener();
+        }
+
+        function loadMoreResults() {
+            if (isLoadingMore || displayedResults >= allSearchResults.length) {
+                return; // Уже загружаем или все показано
+            }
+            
+            isLoadingMore = true;
+            
+            const messagesDiv = document.getElementById('messages');
+            const startIndex = displayedResults;
+            const endIndex = Math.min(startIndex + resultsPerPage, allSearchResults.length);
+            
+            console.log(`📄 Загружаем результаты ${startIndex + 1}-${endIndex} из ${allSearchResults.length}`);
+            
+            // Показываем индикатор загрузки
+            if (startIndex > 0) {
+                const loadingDiv = document.createElement('div');
+                loadingDiv.id = 'loadingMore';
+                loadingDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">🔄 Загрузка...</div>';
+                messagesDiv.appendChild(loadingDiv);
+            }
+            
+            // Имитируем небольшую задержку для плавности
+            setTimeout(() => {
+                // Убираем индикатор загрузки
+                const loadingEl = document.getElementById('loadingMore');
+                if (loadingEl) loadingEl.remove();
+                
+                // Добавляем новые результаты
+                for (let i = startIndex; i < endIndex; i++) {
+                    const msg = allSearchResults[i];
+                    addMessageToDisplay(msg, i + 1);
+                }
+                
+                displayedResults = endIndex;
+                isLoadingMore = false;
+                
+                console.log(`✅ Показано ${displayedResults} из ${allSearchResults.length} результатов`);
+                
+            }, 300); // Задержка 300мс
+        }
+
+        function addMessageToDisplay(msg, index) {
+            const messagesDiv = document.getElementById('messages');
+            
+            // Определяем свежесть сообщения
+            const messageDate = parseMessageDate(msg.date);
+            const now = new Date();
+            const diffMs = now - messageDate;
+            const hoursAgo = Math.floor(diffMs / (1000 * 60 * 60));
+            const daysAgo = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+            let freshnessIndicator = '';
+            if (hoursAgo < 1) {
+                freshnessIndicator = '🔥 Только что';
+            } else if (hoursAgo < 24) {
+                freshnessIndicator = `⚡ ${hoursAgo}ч назад`;
+            } else if (daysAgo < 30) {
+                freshnessIndicator = `📅 ${daysAgo}д назад`;
+            } else if (daysAgo < 365) {
+                const months = Math.floor(daysAgo / 30);
+                const remainingDays = daysAgo % 30;
+                if (remainingDays > 0) {
+                    freshnessIndicator = `📅 ${months}мес ${remainingDays}д назад`;
+                } else {
+                    freshnessIndicator = `📅 ${months}мес назад`;
+                }
+            } else {
+                const years = Math.floor(daysAgo / 365);
+                freshnessIndicator = `📅 ${years}г назад`;
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            messageDiv.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div style="display: inline-block; background: #0088cc; color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                        ${freshnessIndicator}
+                    </div>
+                    <div style="font-size: 12px; color: #999;">
+                        #${index}
+                    </div>
+                </div>
+                <div class="message-text">${msg.text}</div>
+                ${msg.matched_words ? '<div class="matched-words">Найденные слова: ' + msg.matched_words.join(', ') + '</div>' : ''}
+                    <div class="message-meta">
+                        <div class="message-author">
+                            <span>👤</span>
+                            <span>@${msg.author}</span>
+                        </div>
+                        <div class="message-chat">
+                            <span>💬</span>
+                            <span>${msg.chat}</span>
+                        </div>
+                        <div class="message-date">
+                            <span>📅</span>
+                            <span>${msg.date}</span>
+                        </div>
+                        ${msg.chat_id && msg.message_id ? `
+                            <div class="message-link">
+                                <span>🔗</span>
+                                <a href="${generateMessageLink(msg)}" target="_blank" style="color: #0088cc; text-decoration: none;">
+                                    Ссылка на сообщение
+                                </a>
+                            </div>
+                        ` : ''}
+                    </div>
+            `;
+            messagesDiv.appendChild(messageDiv);
+        }
+
+        function addScrollListener() {
+            const messagesDiv = document.getElementById('messages');
+            
+            // Убираем старый обработчик если есть
+            messagesDiv.removeEventListener('scroll', handleScroll);
+            
+            // Добавляем новый обработчик
+            messagesDiv.addEventListener('scroll', handleScroll);
+            
+            console.log('👆 Обработчик скролла подключен');
+        }
+
+        function handleScroll() {
+            const messagesDiv = document.getElementById('messages');
+            const scrollTop = messagesDiv.scrollTop;
+            const scrollHeight = messagesDiv.scrollHeight;
+            const clientHeight = messagesDiv.clientHeight;
+            
+            // Проверяем приближение к концу (осталось 100px до конца)
+            const nearBottom = scrollTop + clientHeight >= scrollHeight - 100;
+            
+            if (nearBottom && !isLoadingMore && displayedResults < allSearchResults.length) {
+                console.log('📜 Пользователь докрутил до конца, загружаем еще...');
+                loadMoreResults();
+            }
+        }
+
+        function removeScrollListener() {
+    const messagesDiv = document.getElementById('messages');
+    messagesDiv.removeEventListener('scroll', handleScroll);
+}
+
+
+        // Сохранение результатов в localStorage
+        function saveResultsToStorage(results, keyword) {
+            try {
+                const searchData = {
+                    results: results,
+                    keyword: keyword,
+                    keywords: keywords.slice(),
+                    groups_count: selectedGroups.length,
+                    timestamp: Date.now(),
+                    ai_results: null // Будет заполнено при AI анализе
+                };
+                
+                localStorage.setItem('message_hunter_search_results', JSON.stringify(searchData));
+                console.log('✅ Результаты сохранены в браузер');
+            } catch (e) {
+                console.log('❌ Не удалось сохранить результаты');
+            }
+        }
+
+        // Сохранение AI результатов
+        function saveAIResultsToStorage(aiResults, analyzedCount) {
+            try {
+                const existingData = JSON.parse(localStorage.getItem('message_hunter_search_results') || '{}');
+                existingData.ai_results = {
+                    potential_clients: aiResults,
+                    analyzed_count: analyzedCount,
+                    timestamp: Date.now()
+                };
+                
+                localStorage.setItem('message_hunter_search_results', JSON.stringify(existingData));
+                console.log('✅ AI результаты сохранены в браузер');
+            } catch (e) {
+                console.log('❌ Не удалось сохранить AI результаты');
+            }
+        }
+
+        // Загрузка сохраненных результатов
+        function loadSavedResults() {
+            try {
+                const savedData = localStorage.getItem('message_hunter_search_results');
+                if (!savedData) return;
+                
+                const searchData = JSON.parse(savedData);
+                
+                // Проверяем что результаты не старше 24 часов
+                const dayAgo = Date.now() - (24 * 60 * 60 * 1000);
+                if (searchData.timestamp < dayAgo) {
+                    localStorage.removeItem('message_hunter_search_results');
+                    return;
+                }
+                
+                console.log('🔄 Восстанавливаю сохраненные результаты...');
+                
+                // Восстанавливаем ключевые слова
+                keywords = searchData.keywords || [];
+                updateKeywordsDisplay();
+                
+                // Восстанавливаем результаты поиска
+                if (searchData.results && searchData.results.length > 0) {
+                    lastSearchResults = {
+                        keywords: searchData.keywords,
+                        results: searchData.results,
+                        groups_count: searchData.groups_count
+                    };
+                    
+                    showResults(searchData.results, searchData.keyword);
+                    document.getElementById('saveBtn').style.display = 'inline-block';
+                    document.getElementById('analyzeBtn').style.display = 'inline-block';
+                    document.getElementById('clearBtn').style.display = 'inline-block';
+                }
+                
+                // Восстанавливаем AI результаты
+                if (searchData.ai_results) {
+                    showAIResults(searchData.ai_results.potential_clients, searchData.ai_results.analyzed_count);
+                }
+                
+                console.log('✅ Результаты восстановлены');
+                
+            } catch (e) {
+                console.log('❌ Ошибка загрузки сохраненных результатов:', e);
+                localStorage.removeItem('message_hunter_search_results');
+            }
+        }
+
+        // Очистка всех результатов
+        function clearAllResults() {
+            if (!confirm('Очистить все найденные результаты?')) return;
+            
+            // Очищаем переменные
+            keywords = [];
+            lastSearchResults = null;
+            
+            // Очищаем интерфейс
+            updateKeywordsDisplay();
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('aiResults').style.display = 'none';
+            document.getElementById('saveBtn').style.display = 'none';
+            document.getElementById('analyzeBtn').style.display = 'none';
+            document.getElementById('clearBtn').style.display = 'none';
+            
+            // Очищаем хранилище
+            localStorage.removeItem('message_hunter_search_results');
+            
+            showError('✅ Все результаты очищены');
+            
+            console.log('🧹 Все результаты очищены');
         }
         
         function showError(message) {
@@ -1192,17 +2031,19 @@
                 return;
             }
             
+            const data = {
+                keywords: lastSearchResults.keywords,
+                results_count: lastSearchResults.results.length,
+                groups_count: lastSearchResults.groups_count,
+                results: lastSearchResults.results
+            };
+            
             fetch('/save_search', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    keywords: lastSearchResults.keywords,
-                    results_count: lastSearchResults.results.length,
-                    groups_count: lastSearchResults.groups_count,
-                    results: lastSearchResults.results
-                })
+                body: JSON.stringify(data)
             })
             .then(response => response.json())
             .then(data => {
@@ -1210,11 +2051,11 @@
                     document.getElementById('saveBtn').style.display = 'none';
                     showError('✅ Поиск сохранён в историю');
                 } else {
-                    showError('Ошибка сохранения');
+                    showError('Ошибка сохранения: ' + (data.error || 'Неизвестная ошибка'));
                 }
             })
             .catch(error => {
-                showError('Ошибка сохранения');
+                showError('Ошибка сохранения: ' + error.message);
                 console.error('Error:', error);
             });
         }
@@ -1354,13 +2195,95 @@
                 console.error('Error:', error);
             });
         }
+        function openAiPromptModal() {
+            if (!lastSearchResults || !lastSearchResults.results) {
+                showError('Нет результатов для анализа');
+                return;
+            }
+            
+            if (lastSearchResults.results.length === 0) {
+                showError('Нет сообщений для анализа');
+                return;
+            }
+            
+            // Показываем модальное окно
+            document.getElementById('aiPromptModal').style.display = 'block';
+            
+            // Фокусируемся на поле ввода
+            setTimeout(() => {
+                document.getElementById('aiPromptInput').focus();
+            }, 100);
+        }
+
+        function closeAiPromptModal() {
+            document.getElementById('aiPromptModal').style.display = 'none';
+        }
+
+        function startAiAnalysisWithPrompt() {
+            const prompt = document.getElementById('aiPromptInput').value.trim();
+            
+            if (!prompt) {
+                showError('Введите промпт для AI анализа');
+                return;
+            }
+            
+            // Закрываем модальное окно
+            closeAiPromptModal();
+            
+            // Запускаем анализ с кастомным промптом
+            analyzeWithCustomPrompt(prompt);
+        }
+
+        function analyzeWithCustomPrompt(customPrompt) {
+            // Показываем загрузку
+            document.getElementById('analyzeBtn').disabled = true;
+            document.getElementById('analyzeBtn').textContent = '🤖 Анализирую...';
+            document.getElementById('aiResults').style.display = 'none';
+            
+            console.log('🎯 Пользовательский промпт:', customPrompt);
+            
+            // Берём сообщения для анализа
+            const messagesToAnalyze = lastSearchResults.results;
+            
+            fetch('/analyze_with_ai', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    messages: messagesToAnalyze,
+                    custom_prompt: customPrompt  // ← ПЕРЕДАЕМ КАСТОМНЫЙ ПРОМПТ
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('analyzeBtn').disabled = false;
+                document.getElementById('analyzeBtn').textContent = '🤖 Анализировать с AI';
+                
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    showAIResults(data.potential_clients, data.analyzed_count, customPrompt);
+                    loadUserStats(); // Обновляем статистику
+                }
+            })
+            .catch(error => {
+                document.getElementById('analyzeBtn').disabled = false;
+                document.getElementById('analyzeBtn').textContent = '🤖 Анализировать с AI';
+                showError('Ошибка анализа AI');
+                console.error('Error:', error);
+            });
+        }
         
-        function showAIResults(potentialClients, analyzedCount) {
+        function showAIResults(potentialClients, analyzedCount, customPrompt = '') {
             const aiResultsDiv = document.getElementById('aiResults');
             const aiMessagesDiv = document.getElementById('aiMessages');
             const aiCountDiv = document.getElementById('aiResultsCount');
             
-            aiCountDiv.textContent = `Найдено ${potentialClients.length} потенциальных клиентов из ${analyzedCount} проанализированных сообщений`;
+            aiCountDiv.innerHTML = `
+                Найдено ${potentialClients.length} потенциальных клиентов из ${analyzedCount} проанализированных сообщений
+                <br><small style="color: #666; font-size: 12px;">🎯 Промпт: "${customPrompt || 'стандартный анализ'}"</small>
+            `;
             
             aiMessagesDiv.innerHTML = '';
             
@@ -1408,16 +2331,11 @@
             }
             
             aiResultsDiv.style.display = 'block';
+            saveAIResultsToStorage(potentialClients, analyzedCount);
             
             // Прокручиваем к результатам AI
             aiResultsDiv.scrollIntoView({ behavior: 'smooth' });
         }
-        
-    
-        
-        
-        
-        
 
         // Функция для локального сохранения API ключей
         function saveApiKeysLocal() {
@@ -1486,7 +2404,8 @@
         function closeApiKeysModal() {
             document.getElementById('apiKeysModal').style.display = 'none';
         }
-        // Функция открытия настроек
+        
+// Функция открытия настроек
         function openSettings() {
             console.log('⚙️ Открываем настройки...');
             
@@ -1502,7 +2421,9 @@
                     
                     // Для API Hash оставляем поле пустым, но меняем placeholder
                     document.getElementById('apiHashInput').value = '';
-                    document.getElementById('apiHashInput').placeholder = `Текущий: ${data.api_hash_masked} (оставьте пустым чтобы не менять)`;
+                    document.getElementById('apiHashInput').placeholder = data.api_hash_masked ? 
+                        `Текущий: ${data.api_hash_masked} (оставьте пустым чтобы не менять)` : 
+                        'Введите API Hash';
                     
                     console.log('✅ Поля заполнены текущими значениями');
                 } else {
@@ -1523,7 +2444,7 @@
             // Показываем модальное окно настроек
             document.getElementById('apiKeysModal').style.display = 'block';
         }
-        // Единая функция инициализации
+
         function initializeApp() {
             console.log('🚀 Инициализация приложения...');
             
@@ -1532,13 +2453,11 @@
             .then(r => r.json())
             .then(data => {
                 if (data.has_keys) {
-                    // API ключи есть - скрываем модальное окно и загружаем данные
                     console.log('✅ API ключи найдены, скрываем модальное окно');
                     document.getElementById('apiKeysModal').style.display = 'none';
-                    loadGroups();
+                    loadGroups(); // ← ЗАГРУЖАЕМ ГРУППЫ ДЛЯ ОСНОВНОЙ ВКЛАДКИ
                     loadHistory();
                 } else {
-                    // API ключей нет - показываем модальное окно
                     console.log('❌ API ключи не найдены, показываем модальное окно');
                     document.getElementById('apiKeysModal').style.display = 'block';
                 }
@@ -1547,14 +2466,787 @@
                 console.log('❌ Ошибка проверки API ключей:', e);
                 document.getElementById('apiKeysModal').style.display = 'block';
             });
+
+            if (data.has_keys) {
+                console.log('✅ API ключи найдены, скрываем модальное окно');
+                document.getElementById('apiKeysModal').style.display = 'none';
+                loadGroups();
+                loadSearchAccounts(); // ← ДОБАВЬ ЭТУ СТРОКУ
+                loadHistory();
+            }
+
+
+            loadAccountInfo(); // Добавь эту строку в initializeApp
             
-            // Загружаем статистику и информацию о пользователе
-            loadUserStats();
-            loadTelegramUserInfo();
         }
 
         // ЕДИНСТВЕННЫЙ запуск через 1 секунду
         setTimeout(initializeApp, 1000);
+
+        function parseMessageDate(dateString) {
+            // Парсим дату в формате "25.12.2024 14:30"
+            const [datePart, timePart] = dateString.split(' ');
+            const [day, month, year] = datePart.split('.');
+            const [hours, minutes] = timePart.split(':');
+            
+            return new Date(year, month - 1, day, hours, minutes);
+        }
+
+        function generateMessageLink(msg) {
+            // Проверяем что есть нужные данные
+            if (!msg.chat_id || !msg.message_id) {
+                return '#'; // Возвращаем заглушку если данных нет
+            }
+            
+            // Если у чата есть username, используем его
+            if (msg.chat_username) {
+                return `https://t.me/${msg.chat_username}/${msg.message_id}`;
+            }
+            
+            // Если нет username, используем внутреннюю ссылку Telegram
+            // Убираем минус из ID чата для публичных ссылок
+            const chatIdStr = msg.chat_id.toString();
+            const cleanChatId = chatIdStr.startsWith('-100') ? chatIdStr.slice(4) : chatIdStr.replace('-', '');
+            
+            return `https://t.me/c/${cleanChatId}/${msg.message_id}`;
+        }
+
+        // Функции для рассылки
+        function selectAllBroadcastGroups() {
+            selectedBroadcastGroups = allGroups.map(g => g.id);
+            document.querySelectorAll('#broadcastGroupsContainer .group-checkbox').forEach(cb => cb.checked = true);
+            updateSelectedBroadcastCount();
+        }
+
+        function deselectAllBroadcastGroups() {
+            selectedBroadcastGroups = [];
+            document.querySelectorAll('#broadcastGroupsContainer .group-checkbox').forEach(cb => cb.checked = false);
+            updateSelectedBroadcastCount();
+        }
+
+        function toggleBroadcastGroup(groupId) {
+            if (selectedBroadcastGroups.includes(groupId)) {
+                selectedBroadcastGroups = selectedBroadcastGroups.filter(id => id !== groupId);
+            } else {
+                selectedBroadcastGroups.push(groupId);
+            }
+            updateSelectedBroadcastCount();
+        }
+
+        function updateSelectedBroadcastCount() {
+            const countEl = document.getElementById('selectedBroadcastCount');
+            if (countEl) {
+                countEl.textContent = `Выбрано: ${selectedBroadcastGroups.length} из ${allGroups.length} групп`;
+            }
+        }
+
+        function displayBroadcastGroups() {
+            const container = document.getElementById('broadcastGroupsContainer');
+            
+            if (allGroups.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Группы не найдены</div>';
+                return;
+            }
+            
+            container.innerHTML = allGroups.map(group => `
+                <div class="group-item">
+                    <input type="checkbox" 
+                        class="group-checkbox" 
+                        id="broadcast_group_${group.id}"
+                        ${selectedBroadcastGroups.includes(group.id) ? 'checked' : ''}
+                        onchange="toggleBroadcastGroup('${group.id}')">
+                    <div class="group-info">
+                        <div class="group-title">${group.title}</div>
+                        <div class="group-type">${group.status || group.type}</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            updateSelectedBroadcastCount();
+        }
+
+        function setDefaultDateTime() {
+            const now = new Date();
+            
+            // Устанавливаем сегодняшнюю дату
+            const dateInput = document.getElementById('broadcastDate');
+            if (dateInput) {
+                const today = now.toISOString().split('T')[0];
+                dateInput.value = today;
+            }
+            
+            // Устанавливаем текущее время + 10 минут
+            const timeInput = document.getElementById('broadcastTime');
+            if (timeInput) {
+                now.setMinutes(now.getMinutes() + 10);
+                const timeString = now.toTimeString().slice(0, 5);
+                timeInput.value = timeString;
+            }
+        }
+
+        function scheduleBroadcast() {
+            // Получаем данные формы
+            const message = document.getElementById('broadcastMessage').value.trim();
+            const date = document.getElementById('broadcastDate').value;
+            const time = document.getElementById('broadcastTime').value;
+            const repeat = document.getElementById('broadcastRepeat').value;
+            
+            // Валидация
+            if (!message) {
+                showError('Введите текст сообщения');
+                return;
+            }
+            
+            if (message.length > 4000) {
+                showError('Сообщение слишком длинное (максимум 4000 символов)');
+                return;
+            }
+            
+            if (!date || !time) {
+                showError('Выберите дату и время отправки');
+                return;
+            }
+            
+            if (selectedBroadcastGroups.length === 0) {
+                showError('Выберите группы для рассылки');
+                return;
+            }
+            
+            // Проверяем что время в будущем
+            const scheduledDateTime = new Date(`${date}T${time}`);
+            const now = new Date();
+            
+            if (scheduledDateTime <= now) {
+                showError('Время отправки должно быть в будущем');
+                return;
+            }
+            
+            console.log('📤 Планируем рассылку:', {
+                message: message,
+                groups: selectedBroadcastGroups.length,
+                datetime: scheduledDateTime,
+                repeat: repeat
+            });
+            
+            // Отправляем на сервер
+            const broadcastBtn = event.target;
+            broadcastBtn.disabled = true;
+            broadcastBtn.textContent = '📤 Планируем...';
+            
+            fetch('/schedule_broadcast', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    groups: selectedBroadcastGroups,
+                    date: date,
+                    time: time,
+                    repeat: repeat
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showError('✅ Рассылка запланирована!');
+                    
+                    // Очищаем форму
+                    document.getElementById('broadcastMessage').value = '';
+                    setDefaultDateTime();
+                    
+                    // Показываем информацию о задаче
+                    showBroadcastSuccess(data.task_info);
+                } else {
+                    showError(data.error || 'Ошибка планирования рассылки');
+                }
+            })
+            .catch(error => {
+                showError('Ошибка соединения');
+                console.error('Error:', error);
+            })
+            .finally(() => {
+                broadcastBtn.disabled = false;
+                broadcastBtn.textContent = '📤 Поставить задачу на рассылку';
+            });
+        }
+
+        function showBroadcastSuccess(taskInfo) {
+            const successDiv = document.createElement('div');
+            successDiv.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 30px;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                z-index: 1000;
+                max-width: 400px;
+                text-align: center;
+            `;
+            
+            successDiv.innerHTML = `
+                <h3 style="color: #28a745; margin-bottom: 15px;">✅ Рассылка запланирована!</h3>
+                <p><strong>Время отправки:</strong> ${taskInfo.scheduled_time}</p>
+                <p><strong>Групп:</strong> ${taskInfo.groups_count}</p>
+                <p><strong>Повтор:</strong> ${taskInfo.repeat_text}</p>
+                <button onclick="this.parentElement.remove()" 
+                        style="margin-top: 15px; padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 10px; cursor: pointer;">
+                    Понятно
+                </button>
+            `;
+            
+            document.body.appendChild(successDiv);
+            
+            // Убираем через 5 секунд
+            setTimeout(() => {
+                if (successDiv.parentElement) {
+                    successDiv.remove();
+                }
+            }, 5000);
+        }
+
+        function loadAccountInfo() {
+            fetch('/get_account_info')
+            .then(response => response.json())
+            .then(data => {
+                const accountInfoEl = document.getElementById('accountInfo');
+                if (accountInfoEl && data.success) {
+                    accountInfoEl.innerHTML = `👤 ${data.account_name}<br>📱 ${data.phone || 'Локальный'}`;
+                }
+            })
+            .catch(error => {
+                console.log('Не удалось загрузить информацию об аккаунте');
+            });
+        }
+
+        function loadBroadcastTasks() {
+            const container = document.getElementById('broadcastTasksContainer');
+            container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">🔄 Загружаем задачи...</div>';
+            
+            fetch('/get_broadcast_tasks')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayBroadcastTasks(data.tasks);
+                } else {
+                    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;">Ошибка загрузки задач</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading tasks:', error);
+                container.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;">Ошибка соединения</div>';
+            });
+        }
+
+        function displayBroadcastTasks(tasks) {
+            const container = document.getElementById('broadcastTasksContainer');
+            
+            if (tasks.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Нет запланированных задач</div>';
+                return;
+            }
+            
+            container.innerHTML = tasks.map(task => {
+                let statusIcon = '⏳';
+                let statusColor = '#0088cc';
+                let statusText = task.status;
+                
+                if (task.status === 'completed') {
+                    statusIcon = '✅';
+                    statusColor = '#28a745';
+                    statusText = `Выполнено (${task.sent_count}/${task.groups_count})`;
+                } else if (task.status === 'failed') {
+                    statusIcon = '❌';
+                    statusColor = '#dc3545';
+                    statusText = 'Ошибка';
+                } else if (task.status === 'executing') {
+                    statusIcon = '📤';
+                    statusColor = '#ff6b35';
+                    statusText = 'Отправляем...';
+                }
+                
+                return `
+                    <div style="border: 1px solid #e1e8ed; border-radius: 10px; padding: 15px; margin-bottom: 10px; background: white;">
+                        <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 10px;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; color: #333; margin-bottom: 5px;">
+                                    ${statusIcon} ${task.message_preview}
+                                </div>
+                                <div style="font-size: 12px; color: #666;">
+                                    ID: ${task.id} • Создано: ${task.created_at}
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="background: ${statusColor}; color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                                    ${statusText}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 14px; color: #666;">
+                            <div>📂 Групп: ${task.groups_count}</div>
+                            <div>⏰ ${task.scheduled_time}</div>
+                            <div>🔄 ${task.repeat}</div>
+                        </div>
+                        ${task.status === 'failed' ? `<div style="margin-top: 10px; padding: 10px; background: #fee; color: #c33; border-radius: 5px; font-size: 12px;">Ошибка: ${task.error}</div>` : ''}
+                        ${task.status === 'completed' && task.completed_at ? `<div style="margin-top: 10px; font-size: 12px; color: #28a745;">✅ Завершено: ${task.completed_at}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Счетчик символов в сообщении
+        document.addEventListener('DOMContentLoaded', function() {
+            const messageTextarea = document.getElementById('broadcastMessage');
+            if (messageTextarea) {
+                messageTextarea.addEventListener('input', function() {
+                    const length = this.value.length;
+                    const lengthEl = document.getElementById('messageLength');
+                    if (lengthEl) {
+                        lengthEl.textContent = `${length} символов`;
+                        if (length > 4000) {
+                            lengthEl.style.color = '#dc3545'; // Красный если слишком длинное
+                        } else {
+                            lengthEl.style.color = '#666';
+                        }
+                    }
+                });
+            }
+        });
+
+        function getSearchDepth() {
+            const depthInput = document.getElementById('searchDepth');
+            const value = parseInt(depthInput.value);
+            
+            // Проверяем границы
+            if (value < 1) return 1;
+            if (value > 10000) return 10000;
+            return value || 500; // По умолчанию 500
+        }
+        function switchAccount() {
+    if (confirm('Сменить текущий аккаунт?')) {
+        fetch('/switch_account')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = '/';
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    }
+}
+
+// Переменные для множественных аккаунтов
+let multiAccounts = [];
+let parallelSearchResults = null;
+
+// Загрузка списка всех аккаунтов
+function loadMultiAccounts() {
+    const container = document.getElementById('multiAccountsContainer');
+    const statsContainer = document.getElementById('accountsStats');
+    
+    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Загрузка...</div>';
+    
+    fetch('/get_multi_accounts')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            multiAccounts = data.accounts;
+            displayMultiAccounts();
+            updateAccountsStats(data.active_count);
+            updateParallelAccountsSelect();
+        } else {
+            container.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;">Ошибка загрузки аккаунтов</div>';
+        }
+    })
+    .catch(error => {
+        console.error('Error loading accounts:', error);
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;">Ошибка соединения</div>';
+    });
+}
+
+// Отображение списка аккаунтов
+function displayMultiAccounts() {
+    const container = document.getElementById('multiAccountsContainer');
+    
+    if (multiAccounts.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Нет доступных аккаунтов</div>';
+        return;
+    }
+    
+    container.innerHTML = multiAccounts.map(account => {
+        const userInfo = account.info.user_info;
+        return `
+            <div class="account-item">
+                <input type="checkbox" 
+                       class="account-toggle" 
+                       id="account_${account.account_name}"
+                       ${account.is_active ? 'checked' : ''}
+                       onchange="toggleAccount('${account.account_name}')">
+                <div class="account-info">
+                    <div class="account-name">${account.account_name}</div>
+                    <div class="account-details">
+                        👤 ${userInfo.first_name} ${userInfo.last_name} | 📱 ${userInfo.phone}
+                    </div>
+                </div>
+                <div class="account-status ${account.is_active ? 'status-active' : 'status-inactive'}">
+                    ${account.is_active ? '✅ Активен' : '⏸️ Неактивен'}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Обновление статистики аккаунтов
+function updateAccountsStats(activeCount) {
+    const container = document.getElementById('accountsStats');
+    
+    const totalCount = multiAccounts.length;
+    const inactiveCount = totalCount - activeCount;
+    
+    container.innerHTML = `
+        <div class="stats-card">
+            <div class="stats-number">${totalCount}</div>
+            <div class="stats-label">Всего аккаунтов</div>
+        </div>
+        <div class="stats-card">
+            <div class="stats-number" style="color: #28a745;">${activeCount}</div>
+            <div class="stats-label">Активных</div>
+        </div>
+        <div class="stats-card">
+            <div class="stats-number" style="color: #dc3545;">${inactiveCount}</div>
+            <div class="stats-label">Неактивных</div>
+        </div>
+    `;
+}
+
+// Обновление списка для параллельного поиска
+function updateParallelAccountsSelect() {
+    const select = document.getElementById('parallelAccountsSelect');
+    const activeAccounts = multiAccounts.filter(acc => acc.is_active);
+    
+    select.innerHTML = `
+        <option value="all">Все активные аккаунты (${activeAccounts.length})</option>
+        ${activeAccounts.map(account => 
+            `<option value="${account.account_name}">${account.account_name}</option>`
+        ).join('')}
+    `;
+}
+
+// Переключение активности аккаунта
+async function toggleAccount(accountName) {
+    const checkbox = document.getElementById(`account_${accountName}`);
+    const action = checkbox.checked ? 'activate' : 'deactivate';
+    
+    try {
+        const response = await fetch('/toggle_account', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                account_name: accountName,
+                action: action
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log(`✅ ${data.message}`);
+            // Обновляем список после изменения
+            setTimeout(loadMultiAccounts, 1000);
+        } else {
+            showError(data.error);
+            // Возвращаем checkbox в исходное состояние
+            checkbox.checked = !checkbox.checked;
+        }
+    } catch (error) {
+        showError('Ошибка соединения');
+        checkbox.checked = !checkbox.checked;
+    }
+}
+
+// Параллельный поиск
+async function startParallelSearch() {
+    if (keywords.length === 0) {
+        showError('Добавьте ключевые слова для поиска');
+        return;
+    }
+    
+    if (selectedGroups.length === 0) {
+        showError('Выберите группы для поиска');
+        return;
+    }
+    
+    const selectElement = document.getElementById('parallelAccountsSelect');
+    const selectedOptions = Array.from(selectElement.selectedOptions);
+    
+    let accountsToUse = [];
+    if (selectedOptions.some(opt => opt.value === 'all')) {
+        accountsToUse = []; // Пустой массив означает "все активные"
+    } else {
+        accountsToUse = selectedOptions.map(opt => opt.value);
+    }
+    
+    const searchBtn = event.target;
+    searchBtn.disabled = true;
+    searchBtn.textContent = '⚡ Поиск...';
+    
+    // Показываем загрузку
+    showParallelSearchLoading();
+    
+    try {
+        const response = await fetch('/parallel_search', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                keyword: keywords.join(' '),
+                selected_groups: selectedGroups,
+                search_depth: getSearchDepth(),
+                accounts: accountsToUse
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            parallelSearchResults = data;
+            showParallelSearchResults(data);
+            
+            // Сохраняем для AI анализа и истории
+            lastSearchResults = {
+                keywords: keywords.slice(),
+                results: data.results,
+                groups_count: selectedGroups.length,
+                is_parallel: true,
+                accounts_used: data.accounts_used
+            };
+            
+            document.getElementById('saveBtn').style.display = 'inline-block';
+            document.getElementById('analyzeBtn').style.display = 'inline-block';
+            
+        } else {
+            showError(data.error);
+        }
+    } catch (error) {
+        showError('Ошибка параллельного поиска');
+        console.error('Error:', error);
+    } finally {
+        searchBtn.disabled = false;
+        searchBtn.textContent = '⚡ Параллельный поиск';
+    }
+}
+
+// Показ результатов параллельного поиска
+function showParallelSearchResults(data) {
+    // Создаем контейнер для результатов если его нет
+    let resultsContainer = document.getElementById('parallelSearchResults');
+    if (!resultsContainer) {
+        resultsContainer = document.createElement('div');
+        resultsContainer.id = 'parallelSearchResults';
+        resultsContainer.className = 'parallel-search-results';
+        document.getElementById('accounts-tab').appendChild(resultsContainer);
+    }
+    
+    const accountsStats = Object.entries(data.search_stats)
+        .map(([account, stats]) => `${account}: ${stats.found || 0}`)
+        .join(' | ');
+    
+    resultsContainer.innerHTML = `
+        <div class="results-header">
+            <div class="results-title">⚡ Результаты параллельного поиска</div>
+            <div class="results-count">
+                Найдено ${data.total} сообщений | Аккаунтов: ${data.accounts_used.length}<br>
+                <small>По аккаунтам: ${accountsStats}</small>
+            </div>
+        </div>
+        <div class="messages" style="max-height: 400px; overflow-y: auto;">
+            ${data.results.map((msg, index) => `
+                <div class="message">
+                    <div class="message-text">${msg.text}</div>
+                    ${msg.matched_words ? '<div class="matched-words">Найденные слова: ' + msg.matched_words.join(', ') + '</div>' : ''}
+                    <div class="message-meta">
+                        <div class="message-author">
+                            <span>👤</span>
+                            <span>@${msg.author}</span>
+                        </div>
+                        <div class="message-chat">
+                            <span>💬</span>
+                            <span>${msg.chat}</span>
+                            ${msg.found_by_account ? `<span class="account-tag">${msg.found_by_account}</span>` : ''}
+                        </div>
+                        <div class="message-date">
+                            <span>📅</span>
+                            <span>${msg.date}</span>
+                        </div>
+                        ${msg.chat_id && msg.message_id ? `
+                            <div class="message-link">
+                                <span>🔗</span>
+                                <a href="${generateMessageLink(msg)}" target="_blank" style="color: #0088cc; text-decoration: none;">
+                                    Ссылка на сообщение
+                                </a>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    resultsContainer.style.display = 'block';
+    resultsContainer.scrollIntoView({ behavior: 'smooth' });
+}
+
+function showParallelSearchLoading() {
+    let resultsContainer = document.getElementById('parallelSearchResults');
+    if (!resultsContainer) {
+        resultsContainer = document.createElement('div');
+        resultsContainer.id = 'parallelSearchResults';
+        resultsContainer.className = 'parallel-search-results';
+        document.getElementById('accounts-tab').appendChild(resultsContainer);
+    }
+    
+    resultsContainer.innerHTML = `
+        <div class="results-header">
+            <div class="results-title">⚡ Параллельный поиск</div>
+            <div class="results-count">Поиск выполняется...</div>
+        </div>
+        <div style="text-align: center; padding: 40px;">
+            <div class="spinner"></div>
+            <div style="margin-top: 20px; color: #666;">
+                Несколько аккаунтов ищут параллельно...<br>
+                Это может занять несколько минут
+            </div>
+        </div>
+    `;
+    
+    resultsContainer.style.display = 'block';
+}
+
+// Добавление нового аккаунта
+function addNewAccount() {
+    // Переходим на страницу управления сессиями
+    window.open('/switch_account', '_blank');
+}
+
+// Обновляем функцию switchTab для загрузки аккаунтов
+const originalSwitchTab = switchTab;
+switchTab = function(tabName) {
+    originalSwitchTab(tabName);
+    
+    if (tabName === 'accounts') {
+        loadMultiAccounts();
+    }
+};
+
+// Функции для работы с аккаунтами в поиске
+function loadSearchAccounts() {
+    const container = document.getElementById('searchAccountsContainer');
+    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Загрузка...</div>';
+    
+    fetch('/get_multi_accounts')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            searchAccounts = data.accounts;
+            
+            // Автоматически выбираем все активные аккаунты
+            selectedSearchAccounts = searchAccounts
+                .filter(acc => acc.is_active)
+                .map(acc => acc.account_name);
+            
+            displaySearchAccounts();
+        } else {
+            container.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;">Ошибка загрузки аккаунтов</div>';
+        }
+    })
+    .catch(error => {
+        console.error('Error loading search accounts:', error);
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #dc3545;">Ошибка соединения</div>';
+    });
+}
+
+function displaySearchAccounts() {
+    const container = document.getElementById('searchAccountsContainer');
+    
+    if (searchAccounts.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Нет доступных аккаунтов</div>';
+        updateSelectedAccountsCount();
+        return;
+    }
+    
+    container.innerHTML = searchAccounts.map(account => {
+        const userInfo = account.info.user_info;
+        const isChecked = selectedSearchAccounts.includes(account.account_name);
+        const isActive = account.is_active;
+        
+        return `
+            <div class="group-item ${!isActive ? 'disabled-account' : ''}">
+                <input type="checkbox" 
+                       class="group-checkbox" 
+                       id="search_account_${account.account_name}"
+                       ${isChecked ? 'checked' : ''}
+                       ${!isActive ? 'disabled' : ''}
+                       onchange="toggleSearchAccount('${account.account_name}')">
+                <div class="group-info">
+                    <div class="group-title">
+                        ${account.account_name}
+                        <span class="account-status ${isActive ? 'status-active' : 'status-inactive'}">
+                            ${isActive ? '🟢 Активен' : '🔴 Неактивен'}
+                        </span>
+                    </div>
+                    <div class="group-type">
+                        👤 ${userInfo.first_name} ${userInfo.last_name} | 📱 ${userInfo.phone}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    updateSelectedAccountsCount();
+}
+
+function toggleSearchAccount(accountName) {
+    if (selectedSearchAccounts.includes(accountName)) {
+        selectedSearchAccounts = selectedSearchAccounts.filter(name => name !== accountName);
+    } else {
+        selectedSearchAccounts.push(accountName);
+    }
+    updateSelectedAccountsCount();
+}
+
+function selectAllSearchAccounts() {
+    selectedSearchAccounts = searchAccounts
+        .filter(acc => acc.is_active)
+        .map(acc => acc.account_name);
+    
+    document.querySelectorAll('#searchAccountsContainer .group-checkbox').forEach(cb => {
+        if (!cb.disabled) {
+            cb.checked = true;
+        }
+    });
+    updateSelectedAccountsCount();
+}
+
+function deselectAllSearchAccounts() {
+    selectedSearchAccounts = [];
+    document.querySelectorAll('#searchAccountsContainer .group-checkbox').forEach(cb => cb.checked = false);
+    updateSelectedAccountsCount();
+}
+
+function updateSelectedAccountsCount() {
+    const countEl = document.getElementById('selectedAccountsCount');
+    if (countEl) {
+        const activeCount = searchAccounts.filter(acc => acc.is_active).length;
+        countEl.textContent = `Выбрано: ${selectedSearchAccounts.length} из ${activeCount} активных аккаунтов`;
+    }
+}
     </script>
+    
 </body>
 </html>

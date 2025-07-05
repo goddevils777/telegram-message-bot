@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Справка - Message Hunter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            line-height: 1.6;
+            color: #333;
+        }
+        
+        .header {
+            background: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .back-btn {
+            background: #0088cc;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        
+        .back-btn:hover {
+            background: #006fa6;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        
+        .help-section {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        
+        .section-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px 30px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .section-content {
+            padding: 30px;
+        }
+        
+        .step {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #0088cc;
+        }
+        
+        .step-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0088cc;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .step-content {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #856404;
+        }
+        
+        .warning-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #155724;
+        }
+        
+        .code-block {
+            background: #f1f3f4;
+            border: 1px solid #e1e8ed;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            overflow-x: auto;
+        }
+        
+        .screenshot-placeholder {
+            background: #e9ecef;
+            border: 2px dashed #adb5bd;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin: 15px 0;
+            color: #6c757d;
+        }
+        
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid #f1f3f4;
+        }
+        
+        .feature-item:last-child {
+            border-bottom: none;
+        }
+        
+        .feature-icon {
+            width: 30px;
+            height: 30px;
+            background: #e8f4fd;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        
+        .faq-item {
+            margin-bottom: 20px;
+            border: 1px solid #e1e8ed;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .faq-question {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 1px solid #e1e8ed;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .faq-answer {
+            padding: 20px;
+            display: none;
+        }
+        
+        .faq-answer.active {
+            display: block;
+        }
+        
+        .toc {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .toc-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .toc-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .toc-item {
+            margin-bottom: 5px;
+        }
+        
+        .toc-link {
+            color: #0088cc;
+            text-decoration: none;
+            padding: 5px 0;
+            display: block;
+            transition: color 0.3s;
+        }
+        
+        .toc-link:hover {
+            color: #006fa6;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            📚 Справка Message Hunter
+        </div>
+        <a href="/" class="back-btn">← Вернуться к приложению</a>
+    </div>
+    
+    <div class="container">
+        <!-- Содержание -->
+        <div class="toc">
+            <div class="toc-title">📋 Содержание</div>
+            <ul class="toc-list">
+                <li class="toc-item"><a href="#intro" class="toc-link">1. Что такое Message Hunter?</a></li>
+                <li class="toc-item"><a href="#setup" class="toc-link">2. Запуск и первоначальная настройка</a></li>
+                <li class="toc-item"><a href="#search" class="toc-link">3. Как искать сообщения</a></li>
+                <li class="toc-item"><a href="#ai" class="toc-link">4. AI анализ клиентов</a></li>
+                <li class="toc-item"><a href="#tips" class="toc-link">5. Полезные советы</a></li>
+                <li class="toc-item"><a href="#faq" class="toc-link">6. Частые вопросы</a></li>
+            </ul>
+        </div>
+
+        <!-- Введение -->
+        <div class="help-section" id="intro">
+            <div class="section-header">
+                🔍 Что такое Message Hunter?
+            </div>
+            <div class="section-content">
+                <p style="font-size: 16px; margin-bottom: 20px;">
+                    Message Hunter - это инструмент для поиска сообщений в ваших Telegram группах. 
+                    Он помогает находить потенциальных клиентов, которые ищут ваши услуги или товары.
+                </p>
+                
+                <ul class="feature-list">
+                    <li class="feature-item">
+                        <div class="feature-icon">🔍</div>
+                        <span><strong>Поиск по ключевым словам</strong> - находите сообщения по любым словам</span>
+                    </li>
+                    <li class="feature-item">
+                        <div class="feature-icon">🤖</div>
+                        <span><strong>AI анализ</strong> - искусственный интеллект находит потенциальных клиентов</span>
+                    </li>
+                    <li class="feature-item">
+                        <div class="feature-icon">📂</div>
+                        <span><strong>Выбор групп</strong> - ищите только в нужных группах</span>
+                    </li>
+                    <li class="feature-item">
+                        <div class="feature-icon">📋</div>
+                        <span><strong>История поиска</strong> - сохраняйте и повторяйте успешные поиски</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Настройка -->
+        <div class="help-section" id="setup">
+            <div class="section-header">
+                ⚙️ Запуск и первоначальная настройка
+            </div>
+            <div class="section-content">
+                <div class="step">
+                    <div class="step-title">
+                        <span>0️⃣</span>
+                        Запуск приложения и авторизация в Telegram
+                    </div>
+                    <div class="step-content">
+                        <p><strong>Запуск терминала:</strong></p>
+                        <ul style="margin-left: 20px; margin-bottom: 15px;">
+                            <li><strong>Windows:</strong> Нажмите Win+R, введите "cmd" или "powershell" и нажмите Enter</li>
+                            <li><strong>Mac:</strong> Нажмите Cmd+Space, введите "Terminal" и нажмите Enter</li>
+                            <li><strong>Linux:</strong> Нажмите Ctrl+Alt+T или найдите "Terminal" в меню</li>
+                        </ul>
+                        
+                        <p><strong>Переход в папку с приложением:</strong></p>
+                        <div class="code-block">
+# Если папка на рабочем столе:
+cd Desktop/message-hunter
+
+# Или укажите полный путь к папке:
+cd C:\Users\ВашеИмя\Desktop\message-hunter</div>
+                        
+                        <p><strong>Запуск приложения:</strong></p>
+                        <div class="code-block">
+python web_app.py</div>
+                        
+                        <p><strong>Открытие в браузере:</strong></p>
+                        <ol style="margin-left: 20px; margin-top: 10px;">
+                            <li>Откройте любой браузер (Chrome, Firefox, Safari)</li>
+                            <li>Введите в адресной строке: <strong>localhost:8000</strong></li>
+                            <li>Нажмите Enter</li>
+                        </ol>
+                        
+                        <div class="warning">
+                            <div class="warning-title">⚠️ Важно!</div>
+                            Не закрывайте терминал пока работаете с приложением! Если закроете - приложение остановится.
+                        </div>
+                        
+                        <div class="success">
+                            <strong>✅ Готово!</strong> Если всё прошло успешно, вы увидите интерфейс Message Hunter в браузере.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">
+                        <span>1️⃣</span>
+                        Получение API ключей Telegram
+                    </div>
+                    <div class="step-content">
+                        <p><strong>Правильный подход:</strong></p>
+                        <ul style="margin-left: 20px;">
+                            <li>Пишите каждому клиенту персонально</li>
+                            <li>Упоминайте детали из их сообщения</li>
+                            <li>Предлагайте конкретное решение</li>
+                            <li>Будьте честными и полезными</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        Не запускается приложение через терминал
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p><strong>Возможные причины:</strong></p>
+                        <ul style="margin-left: 20px;">
+                            <li>Python не установлен - скачайте с python.org</li>
+                            <li>Неправильная папка - проверьте путь к файлам</li>
+                            <li>Отсутствуют библиотеки - установите: pip install -r requirements.txt</li>
+                            <li>Порт 8000 занят - закройте другие программы</li>
+                        </ul>
+                        <p><strong>Решение:</strong></p>
+                        <ol style="margin-left: 20px;">
+                            <li>Проверьте что Python установлен: python --version</li>
+                            <li>Убедитесь что находитесь в правильной папке</li>
+                            <li>Установите зависимости: pip install flask pyrogram google-generativeai</li>
+                            <li>Попробуйте другой порт, изменив в коде 8000 на 8001</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        Браузер не открывает localhost:8000
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p><strong>Проверьте:</strong></p>
+                        <ul style="margin-left: 20px;">
+                            <li>Приложение запущено в терминале (не закрыт)</li>
+                            <li>В терминале нет сообщений об ошибках</li>
+                            <li>Правильно написан адрес: localhost:8000 или 127.0.0.1:8000</li>
+                            <li>Брандмауэр не блокирует соединение</li>
+                        </ul>
+                        <p><strong>Решение:</strong> Перезапустите приложение и попробуйте другой браузер.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        Где хранятся мои данные?
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p><strong>Все данные хранятся только на вашем компьютере:</strong></p>
+                        <ul style="margin-left: 20px;">
+                            <li><strong>API ключи:</strong> в файле config/api_keys.json</li>
+                            <li><strong>История поиска:</strong> в памяти приложения</li>
+                            <li><strong>Кэш групп:</strong> в браузере (sessionStorage)</li>
+                        </ul>
+                        <p><strong>Никакие данные не отправляются в интернет!</strong> Приложение работает локально.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        Как удалить все данные?
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p><strong>Для полной очистки:</strong></p>
+                        <ol style="margin-left: 20px;">
+                            <li>Закройте приложение</li>
+                            <li>Удалите папку "config" в директории приложения</li>
+                            <li>Удалите все файлы *.session</li>
+                            <li>Очистите данные браузера для localhost:8000</li>
+                        </ol>
+                        <p><strong>Внимание:</strong> После этого нужно заново вводить API ключи.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        Приложение показывает ошибки подключения
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p><strong>Проверьте:</strong></p>
+                        <ul style="margin-left: 20px;">
+                            <li>Интернет подключение стабильно</li>
+                            <li>API ключи введены правильно</li>
+                            <li>Telegram аккаунт не заблокирован</li>
+                            <li>Нет блокировок от антивируса</li>
+                        </ul>
+                        <p><strong>Решение:</strong> Перезапустите приложение и повторите попытку через 5-10 минут.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Заключение -->
+        <div class="help-section">
+            <div class="section-header">
+                🎉 Готовы начать поиск клиентов?
+            </div>
+            <div class="section-content">
+                <p style="font-size: 16px; margin-bottom: 20px;">
+                    Теперь вы знаете все необходимое для эффективного использования Message Hunter! 
+                </p>
+                
+                <div class="success">
+                    <strong>🚀 Последовательность действий:</strong><br>
+                    1. Настройте API ключи<br>
+                    2. Выберите 10-15 тематических групп<br>
+                    3. Добавьте 3-5 ключевых слов<br>
+                    4. Запустите поиск<br>
+                    5. Проанализируйте результаты с AI<br>
+                    6. Свяжитесь с потенциальными клиентами
+                </div>
+                
+                <p style="margin-top: 20px; text-align: center;">
+                    <a href="/" class="back-btn" style="display: inline-block; text-decoration: none; font-size: 16px; padding: 15px 30px;">
+                        🔍 Начать поиск клиентов
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleFaq(element) {
+            const answer = element.nextElementSibling;
+            const icon = element.querySelector('span');
+            
+            if (answer.classList.contains('active')) {
+                answer.classList.remove('active');
+                icon.textContent = '+';
+            } else {
+                // Закрываем все остальные FAQ
+                document.querySelectorAll('.faq-answer.active').forEach(item => {
+                    item.classList.remove('active');
+                    item.previousElementSibling.querySelector('span').textContent = '+';
+                });
+                
+                // Открываем текущий
+                answer.classList.add('active');
+                icon.textContent = '−';
+            }
+        }
+
+        // Плавная прокрутка к разделам
+        document.querySelectorAll('.toc-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({ 
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>Зачем нужны API ключи?</strong><br>
+                        API ключи позволяют приложению подключиться к вашему Telegram аккаунту и читать ваши группы.</p>
+                        
+                        <p><strong>Пошаговая инструкция:</strong></p>
+                        <ol style="margin-left: 20px; margin-top: 10px;">
+                            <li>Откройте сайт <a href="https://my.telegram.org" target="_blank" style="color: #0088cc;">https://my.telegram.org</a></li>
+                            <li>Войдите используя ваш номер телефона Telegram</li>
+                            <li>Введите код подтверждения из SMS</li>
+                            <li>Нажмите "API development tools"</li>
+                            <li>Заполните форму создания приложения:
+                                <div class="code-block">
+App title: Message Hunter<br>
+Short name: message_hunter<br>
+URL: (оставьте пустым)<br>
+Platform: Desktop<br>
+Description: Поиск сообщений в группах
+                                </div>
+                            </li>
+                            <li>Скопируйте <strong>API ID</strong> и <strong>API Hash</strong></li>
+                        </ol>
+                        
+                        <div class="warning">
+                            <div class="warning-title">⚠️ Важно!</div>
+                            Никогда не делитесь своими API ключами! Они работают только на вашем компьютере.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">
+                        <span>2️⃣</span>
+                        Ввод API ключей в приложение
+                    </div>
+                    <div class="step-content">
+                        <ol style="margin-left: 20px;">
+                            <li>Нажмите кнопку "⚙️ API Настройки" в правом верхнем углу</li>
+                            <li>Введите ваш <strong>API ID</strong> (только цифры)</li>
+                            <li>Введите ваш <strong>API Hash</strong> (32 символа)</li>
+                            <li>Нажмите "✅ Сохранить настройки"</li>
+                        </ol>
+                        
+                        <div class="success">
+                            <strong>✅ Готово!</strong> Теперь приложение может загрузить ваши группы.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">
+                        <span>3️⃣</span>
+                        Первый запуск и проверка групп
+                    </div>
+                    <div class="step-content">
+                        <ol style="margin-left: 20px;">
+                            <li>Перейдите на вкладку "📂 Выбор групп"</li>
+                            <li>Подождите пока загрузятся ваши группы (может занять 1-2 минуты)</li>
+                            <li>Выберите группы где хотите искать</li>
+                            <li>Нажмите "✅ Выбрать все" или выберите конкретные группы</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Поиск -->
+        <div class="help-section" id="search">
+            <div class="section-header">
+                🔍 Как искать сообщения
+            </div>
+            <div class="section-content">
+                <div class="step">
+                    <div class="step-title">
+                        <span>1️⃣</span>
+                        Добавление ключевых слов
+                    </div>
+                    <div class="step-content">
+                        <p><strong>Правила добавления слов:</strong></p>
+                        <ul style="margin-left: 20px;">
+                            <li>Добавляйте по одному слову за раз</li>
+                            <li>Используйте простые слова (без символов и пробелов)</li>
+                            <li>Думайте как ваши клиенты - какие слова они используют?</li>
+                        </ul>
+                        
+                        <p><strong>Примеры хороших ключевых слов:</strong></p>
+                        <div class="code-block">
+Для веб-дизайнера: сайт, лендинг, дизайн, разработка<br>
+Для фотографа: фотосессия, свадьба, фотограф, снимки<br>
+Для репетитора: репетитор, математика, подготовка, ЕГЭ<br>
+Для переводчика: перевод, переводчик, английский, документы
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">
+                        <span>2️⃣</span>
+                        Запуск поиска
+                    </div>
+                    <div class="step-content">
+                        <ol style="margin-left: 20px;">
+                            <li>Добавьте 3-5 ключевых слов</li>
+                            <li>Убедитесь что выбраны нужные группы</li>
+                            <li>Нажмите "🔍 Найти сообщения"</li>
+                            <li>Дождитесь завершения поиска (обычно 2-5 минут)</li>
+                        </ol>
+                        
+                        <div class="warning">
+                            <div class="warning-title">⏰ Время поиска</div>
+                            Поиск может занять несколько минут в зависимости от количества групп и сообщений.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">
+                        <span>3️⃣</span>
+                        Анализ результатов
+                    </div>
+                    <div class="step-content">
+                        <p><strong>В результатах поиска вы увидите:</strong></p>
+                        <ul style="margin-left: 20px;">
+                            <li><strong>Текст сообщения</strong> - полное содержимое</li>
+                            <li><strong>Автор</strong> - username человека</li>
+                            <li><strong>Группа</strong> - в какой группе найдено</li>
+                            <li><strong>Дата</strong> - когда написано сообщение</li>
+                            <li><strong>Найденные слова</strong> - какие из ваших слов совпали</li>
+                        </ul>
+                        
+                        <p style="margin-top: 15px;"><strong>Что делать с результатами:</strong></p>
+                        <ul style="margin-left: 20px;">
+                            <li>Читайте каждое сообщение внимательно</li>
+                            <li>Ищите реальные потребности и проблемы</li>
+                            <li>Сохраняйте интересные поиски в историю</li>
+                            <li>Используйте AI анализ для поиска клиентов</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI анализ -->
+        <div class="help-section" id="ai">
+            <div class="section-header">
+                🤖 AI анализ потенциальных клиентов
+            </div>
+            <div class="section-content">
+                <div class="step">
+                    <div class="step-title">
+                        <span>🎯</span>
+                        Что такое AI анализ?
+                    </div>
+                    <div class="step-content">
+                        <p>Искусственный интеллект анализирует найденные сообщения и выделяет те, где люди:</p>
+                        <ul style="margin-left: 20px; margin-top: 10px;">
+                            <li>Ищут услуги или товары</li>
+                            <li>Просят помощь за деньги</li>
+                            <li>Хотят что-то купить</li>
+                            <li>Имеют проблемы, которые можно решить</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">
+                        <span>▶️</span>
+                        Как запустить AI анализ
+                    </div>
+                    <div class="step-content">
+                        <ol style="margin-left: 20px;">
+                            <li>Сначала проведите обычный поиск сообщений</li>
+                            <li>Дождитесь результатов поиска</li>
+                            <li>Нажмите кнопку "🤖 Анализировать с AI"</li>
+                            <li>Подождите 30-60 секунд пока AI обработает сообщения</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">
+                        <span>📊</span>
+                        Понимание результатов AI
+                    </div>
+                    <div class="step-content">
+                        <p><strong>AI покажет для каждого потенциального клиента:</strong></p>
+                        <ul style="margin-left: 20px;">
+                            <li><strong>Исходное сообщение</strong> - что написал человек</li>
+                            <li><strong>Потребность</strong> - что именно ему нужно</li>
+                            <li><strong>Контакты</strong> - username и группа для связи</li>
+                            <li><strong>Уверенность</strong> - насколько AI уверен в анализе</li>
+                        </ul>
+                        
+                        <div class="success">
+                            <strong>💡 Совет:</strong> Свяжитесь с людьми из результатов AI - они с большой вероятностью заинтересованы в ваших услугах!
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Советы -->
+        <div class="help-section" id="tips">
+            <div class="section-header">
+                💡 Полезные советы
+            </div>
+            <div class="section-content">
+                <div class="step">
+                    <div class="step-title">
+                        <span>🎯</span>
+                        Как выбрать правильные ключевые слова
+                    </div>
+                    <div class="step-content">
+                        <ul style="margin-left: 20px;">
+                            <li><strong>Используйте синонимы:</strong> сайт, лендинг, веб-сайт, страница</li>
+                            <li><strong>Добавляйте эмоции:</strong> срочно, помогите, нужно, ищу</li>
+                            <li><strong>Думайте о проблемах:</strong> сломался, не работает, нужен, требуется</li>
+                            <li><strong>Используйте конкретику:</strong> цена, стоимость, сколько, бюджет</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">
+                        <span>📂</span>
+                        Как выбрать группы для поиска
+                    </div>
+                    <div class="step-content">
+                        <ul style="margin-left: 20px;">
+                            <li><strong>Тематические группы:</strong> выбирайте группы по вашей теме</li>
+                            <li><strong>Региональные чаты:</strong> ищите в группах вашего города</li>
+                            <li><strong>Барахолки и объявления:</strong> там часто ищут услуги</li>
+                            <li><strong>Не перегружайте:</strong> 10-20 групп достаточно для начала</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">
+                        <span>⏰</span>
+                        Когда и как часто искать
+                    </div>
+                    <div class="step-content">
+                        <ul style="margin-left: 20px;">
+                            <li><strong>Утром (9-11):</strong> люди планируют день и ищут решения</li>
+                            <li><strong>Вечером (18-21):</strong> время для личных дел и покупок</li>
+                            <li><strong>Частота:</strong> проверяйте 2-3 раза в неделю</li>
+                            <li><strong>Ведите записи:</strong> сохраняйте успешные поиски</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-title">
+                        <span>💬</span>
+                        Как общаться с найденными клиентами
+                    </div>
+                    <div class="step-content">
+                        <ul style="margin-left: 20px;">
+                            <li><strong>Будьте вежливы:</strong> начните с приветствия</li>
+                            <li><strong>Ссылайтесь на сообщение:</strong> "Видел ваше сообщение в группе..."</li>
+                            <li><strong>Предлагайте решение:</strong> конкретно объясните как поможете</li>
+                            <li><strong>Не спамьте:</strong> один человек = одно сообщение</li>
+                        </ul>
+                        
+                        <div class="code-block">
+Пример сообщения:
+"Привет! Видел твое сообщение в группе [название] про поиск веб-дизайнера. 
+Занимаюсь созданием сайтов уже 3 года, могу помочь с твоим проектом. 
+Можем обсудить детали?"
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ -->
+        <div class="help-section" id="faq">
+            <div class="section-header">
+                ❓ Частые вопросы
+            </div>
+            <div class="section-content">
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        Безопасно ли использовать приложение?
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p><strong>Да, абсолютно безопасно.</strong></p>
+                        <ul style="margin-left: 20px;">
+                            <li>Приложение работает только на вашем компьютере</li>
+                            <li>API ключи хранятся локально</li>
+                            <li>Никто не получает доступ к вашим данным</li>
+                            <li>Используется официальный Telegram API</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        Почему не загружаются группы?
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p><strong>Возможные причины:</strong></p>
+                        <ul style="margin-left: 20px;">
+                            <li>Неправильные API ключи - проверьте их еще раз</li>
+                            <li>Медленный интернет - подождите 2-3 минуты</li>
+                            <li>Нет групп в аккаунте - вступите в несколько групп</li>
+                            <li>Аккаунт заблокирован - используйте другой</li>
+                        </ul>
+                        <p><strong>Решение:</strong> Нажмите "🔄 Обновить список" или перезапустите приложение.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        Поиск работает слишком медленно
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p><strong>Это нормально!</strong> Поиск может занимать время потому что:</p>
+                        <ul style="margin-left: 20px;">
+                            <li>Telegram ограничивает скорость запросов</li>
+                            <li>Нужно проверить тысячи сообщений</li>
+                            <li>Чем больше групп - тем дольше поиск</li>
+                        </ul>
+                        <p><strong>Советы:</strong></p>
+                        <ul style="margin-left: 20px;">
+                            <li>Выбирайте 10-15 самых активных групп</li>
+                            <li>Запускайте поиск когда никуда не торопитесь</li>
+                            <li>Не закрывайте приложение во время поиска</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        AI анализ не находит клиентов
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p><strong>Возможные причины:</strong></p>
+                        <ul style="margin-left: 20px;">
+                            <li>В найденных сообщениях действительно нет явных потребностей</li>
+                            <li>Ключевые слова слишком общие</li>
+                            <li>Неподходящие группы для поиска</li>
+                        </ul>
+                        <p><strong>Решения:</strong></p>
+                        <ul style="margin-left: 20px;">
+                            <li>Используйте более конкретные ключевые слова</li>
+                            <li>Ищите в тематических группах</li>
+                            <li>Добавьте слова: "нужен", "ищу", "помогите", "срочно"</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        Можно ли автоматизировать отправку сообщений?
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p><strong>НЕТ, этого делать нельзя!</strong></p>
+                        <ul style="margin-left: 20px;">
+                            <li>Telegram блокирует за спам</li>
+                            <li>Люди жалуются на автоматические сообщения</li>
+                            <li>Это неэффективно для бизнеса</li>
+                        </ul>
+                        <p><strong>

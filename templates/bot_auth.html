@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Загрузка сессий - Message Hunter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .auth-container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 700px;
+            width: 100%;
+        }
+        
+        .logo {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        .method-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        
+        .method-tab {
+            flex: 1;
+            padding: 15px 20px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .method-tab.active {
+            background: #0088cc;
+            color: white;
+        }
+        
+        .method-content {
+            display: none;
+        }
+        
+        .method-content.active {
+            display: block;
+        }
+        
+        .step-box {
+            background: #f0f8ff;
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .step-title {
+            font-weight: 600;
+            color: #0088cc;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        
+        .code-block {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+        
+        .btn {
+            background: #0088cc;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            background: #006fa6;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: #28a745;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .file-upload {
+            border: 2px dashed #0088cc;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .file-upload:hover {
+            border-color: #006fa6;
+            background: #f0f8ff;
+        }
+        
+        .file-upload.dragover {
+            border-color: #28a745;
+            background: #f8fff9;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .sessions-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e1e8ed;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .session-item {
+            padding: 15px;
+            border-bottom: 1px solid #f1f3f4;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .session-item:last-child {
+            border-bottom: none;
+        }
+        
+        .session-info {
+            text-align: left;
+        }
+        
+        .session-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .session-details {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .status-message {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="logo">💻</div>
+        <h1>Подключение аккаунтов</h1>
+        <p class="subtitle">Используйте готовые сессии для безопасного подключения</p>
+        
+        <!-- Вкладки методов -->
+        <div class="method-tabs">
+            <button class="method-tab active" onclick="switchMethod('create')">
+                🔧 Создать сессию
+            </button>
+            <button class="method-tab" onclick="switchMethod('upload')">
+                📁 Загрузить сессию
+            </button>
+            <button class="method-tab" onclick="switchMethod('existing')">
+                📋 Готовые сессии
+            </button>
+        </div>
+        
+        <!-- Создание новой сессии -->
+        <div class="method-content active" id="createMethod">
+            <div class="step-box">
+                <div class="step-title">🔧 Создание сессии через терминал</div>
+                <div>
+                    1. Откройте терминал в папке проекта<br>
+                    2. Выполните команду:<br>
+                    <div class="code-block">python3 create_session_tool.py</div>
+                    3. Следуйте инструкциям в терминале<br>
+                    4. После создания сессия появится в списке готовых сессий
+                </div>
+            </div>
+            
+            <button class="btn btn-success" onclick="createSessionTerminal()">
+                🔧 Создать сессию в терминале
+            </button>
+            
+            <button class="btn" onclick="checkForNewSessions()">
+                🔄 Обновить список сессий
+            </button>
+        </div>
+        
+        <!-- Загрузка сессии -->
+        <div class="method-content" id="uploadMethod">
+            <div class="step-box">
+                <div class="step-title">📁 Загрузка файлов сессии</div>
+                <div>
+                    Загрузите файлы .session и _info.json созданные на другом устройстве
+                </div>
+            </div>
+            
+            <div class="file-upload" onclick="document.getElementById('fileInput').click()">
+                <div style="font-size: 48px; margin-bottom: 10px;">📁</div>
+                <div>Нажмите для выбора файлов или перетащите сюда</div>
+                <div style="font-size: 14px; color: #666; margin-top: 10px;">
+                    Поддерживаются: .session, .json
+                </div>
+            </div>
+            
+            <input type="file" id="fileInput" multiple accept=".session,.json">
+        </div>
+        
+        <!-- Готовые сессии -->
+        <div class="method-content" id="existingMethod">
+            <div class="step-box">
+                <div class="step-title">📋 Доступные сессии</div>
+                <div>
+                    Выберите сессию для использования в системе
+                </div>
+            </div>
+            
+            <div class="sessions-list" id="sessionsList">
+                <div style="text-align: center; padding: 30px; color: #666;">
+                    Загрузка сессий...
+                </div>
+            </div>
+            
+            <button class="btn" onclick="loadAvailableSessions()">
+                🔄 Обновить список
+            </button>
+        </div>
+        
+        <div class="status-message" id="statusMessage"></div>
+    </div>
+    
+    <script>
+        function switchMethod(method) {
+            // Убираем активные классы
+            document.querySelectorAll('.method-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.method-content').forEach(content => content.classList.remove('active'));
+            
+            // Добавляем активные классы
+            event.target.classList.add('active');
+            document.getElementById(method + 'Method').classList.add('active');
+            
+            // Загружаем данные для активной вкладки
+            if (method === 'existing') {
+                loadAvailableSessions();
+            }
+        }
+        
+        async function createSessionTerminal() {
+            showStatus('info', '🔄 Запуск создания сессии... Переключитесь в терминал!');
+            
+            try {
+                const response = await fetch('/create_session_terminal', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus('success', '✅ Сессия создана! Проверьте список готовых сессий.');
+                    setTimeout(() => {
+                        switchMethod('existing');
+                        loadAvailableSessions();
+                    }, 2000);
+                } else {
+                    showStatus('error', `❌ ${data.error}`);
+                }
+            } catch (error) {
+                showStatus('error', '❌ Ошибка соединения');
+            }
+        }
+        
+        async function loadAvailableSessions() {
+            const listEl = document.getElementById('sessionsList');
+            listEl.innerHTML = '<div style="text-align: center; padding: 30px; color: #666;">Загрузка...</div>';
+            
+            try {
+                const response = await fetch('/get_available_sessions');
+                const data = await response.json();
+                
+                if (data.success && data.sessions.length > 0) {
+                    listEl.innerHTML = data.sessions.map(session => `
+                        <div class="session-item">
+                            <div class="session-info">
+                                <div class="session-name">${session.account_name}</div>
+                                <div class="session-details">
+                                    👤 ${session.user_info.first_name} ${session.user_info.last_name}<br>
+                                    📱 ${session.user_info.phone}
+                                </div>
+                            </div>
+                            <button class="btn" onclick="useSession('${session.account_name}')">
+                                ✅ Использовать
+                            </button>
+                        </div>
+                    `).join('');
+                } else {
+                    listEl.innerHTML = '<div style="text-align: center; padding: 30px; color: #666;">Нет доступных сессий</div>';
+                }
+            } catch (error) {
+                listEl.innerHTML = '<div style="text-align: center; padding: 30px; color: #dc3545;">Ошибка загрузки</div>';
+            }
+        }
+        
+        async function useSession(accountName) {
+            try {
+                const response = await fetch('/use_session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ account_name: accountName })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus('success', '✅ Сессия активирована! Перенаправляем...');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                } else {
+                    showStatus('error', `❌ ${data.error}`);
+                }
+            } catch (error) {
+                showStatus('error', '❌ Ошибка соединения');
+            }
+        }
+        
+        function checkForNewSessions() {
+            loadAvailableSessions();
+            showStatus('info', 'Список обновлен');
+        }
+        
+        function showStatus(type, message) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+            
+            if (type !== 'success') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+        
+        // Загружаем сессии при старте
+        loadAvailableSessions();
+    </script>
+</body>
+</html>
