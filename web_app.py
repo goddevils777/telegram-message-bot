@@ -19,6 +19,8 @@ import signal
 import schedule
 import uuid
 
+TASKS_FILE = 'broadcast_tasks.json'
+
 # Инициализация приложения
 app = Flask(__name__)
 app.secret_key = "abc123xyz789randomd6d215bd18a5303bac88cbc4dcbab1d1"
@@ -144,6 +146,62 @@ class MultiAccountManager:
     def get_active_accounts(self):
         """Возвращает список активных аккаунтов"""
         return list(self.clients.keys())
+
+# ДОБАВЬТЕ В НАЧАЛО ФАЙЛА:
+TASKS_FILE = 'broadcast_tasks.json'
+
+def save_tasks_to_file():
+    """Сохраняет задачи в файл"""
+    try:
+        # Конвертируем datetime объекты в строки для JSON
+        tasks_to_save = {}
+        for task_id, task in broadcast_tasks.items():
+            task_copy = task.copy()
+            if 'scheduled_time' in task_copy:
+                task_copy['scheduled_time'] = task_copy['scheduled_time'].isoformat()
+            if 'created_at' in task_copy:
+                task_copy['created_at'] = task_copy['created_at'].isoformat()
+            if 'completed_at' in task_copy:
+                task_copy['completed_at'] = task_copy['completed_at'].isoformat()
+            tasks_to_save[task_id] = task_copy
+        
+        with open(TASKS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(tasks_to_save, f, ensure_ascii=False, indent=2)
+        
+        print(f"💾 Сохранено {len(tasks_to_save)} задач в файл")
+        
+    except Exception as e:
+        print(f"❌ Ошибка сохранения задач: {e}")
+
+def load_tasks_from_file():
+    """Загружает задачи из файла"""
+    global broadcast_tasks
+    try:
+        if os.path.exists(TASKS_FILE):
+            with open(TASKS_FILE, 'r', encoding='utf-8') as f:
+                saved_tasks = json.load(f)
+            
+            # Конвертируем строки обратно в datetime
+            for task_id, task in saved_tasks.items():
+                if 'scheduled_time' in task:
+                    task['scheduled_time'] = datetime.fromisoformat(task['scheduled_time'])
+                if 'created_at' in task:
+                    task['created_at'] = datetime.fromisoformat(task['created_at'])
+                if 'completed_at' in task and task['completed_at']:
+                    task['completed_at'] = datetime.fromisoformat(task['completed_at'])
+                
+                broadcast_tasks[task_id] = task
+            
+            print(f"📋 Загружено {len(broadcast_tasks)} задач из файла")
+        
+    except Exception as e:
+        print(f"❌ Ошибка загрузки задач: {e}")
+
+# ДОБАВЬТЕ ЗАГРУЗКУ ПРИ СТАРТЕ ПРИЛОЖЕНИЯ (в конце файла):
+if __name__ == '__main__':
+    print("🚀 Запускаю Message Hunter...")
+    load_tasks_from_file()  # ← ДОБАВЬ ЭТУ СТРОКУ
+    # ... остальной код запуска ...
 
 # Создаем глобальный менеджер
 account_manager = MultiAccountManager()
@@ -293,6 +351,114 @@ def get_user_client(user_id):
         
     except Exception as e:
         print(f"❌ Ошибка создания клиента: {e}")
+        return None
+
+def get_broadcast_client(account_name):
+    """Создает клиент для рассылки из выбранного аккаунта"""
+    try:
+        sessions_dir = 'sessions'
+        info_file = f"{sessions_dir}/{account_name}_info.json"
+        
+        if not os.path.exists(info_file):
+            print(f"❌ Файл информации {info_file} не найден")
+            return None
+        
+        with open(info_file, 'r', encoding='utf-8') as f:
+            info = json.load(f)
+        
+        session_file = f"{sessions_dir}/{info['session_file']}"
+        if not os.path.exists(session_file):
+            print(f"❌ Файл сессии {session_file} не найден")
+            return None
+        
+        # Создаем путь к сессии без расширения
+        session_path = session_file.replace('.session', '')
+        
+        return Client(session_path, api_id=API_ID, api_hash=API_HASH)
+        
+    except Exception as e:
+        print(f"❌ Ошибка создания клиента для {account_name}: {e}")
+        return None
+
+def get_current_account_name():
+    """Получает название текущего активного аккаунта"""
+    try:
+        # Сначала пробуем current_account.json
+        if os.path.exists('current_account.json'):
+            with open('current_account.json', 'r', encoding='utf-8') as f:
+                account_data = json.load(f)
+            account_name = account_data.get('account_name', 'local_user')
+            print(f"🔍 Найден аккаунт в current_account.json: {account_name}")
+            return account_name
+        
+        # Если нет current_account.json, ищем активную сессию
+        if os.path.exists('user_local.session'):
+            print(f"🔍 Используем user_local.session")
+            return 'local_user'
+        
+        # Ищем любые сессии в папке sessions
+        sessions_dir = 'sessions'
+        if os.path.exists(sessions_dir):
+            for file in os.listdir(sessions_dir):
+                if file.endswith('_info.json'):
+                    account_name = file.replace('_info.json', '')
+                    session_file = f"{sessions_dir}/session_{account_name}.session"
+                    if os.path.exists(session_file):
+                        print(f"🔍 Найдена сессия: {account_name}")
+                        return account_name
+        
+        print(f"❌ Не найдено ни одной активной сессии")
+        return 'default_account'  # Возвращаем дефолтное значение
+        
+    except Exception as e:
+        print(f"❌ Ошибка получения текущего аккаунта: {e}")
+        return 'default_account'
+
+def get_account_session_path(account_name):
+    """Получает путь к сессии для указанного аккаунта"""
+    try:
+        if account_name == 'local_user':
+            return 'user_local'
+        
+        sessions_dir = 'sessions'
+        info_file = f"{sessions_dir}/{account_name}_info.json"
+        
+        if not os.path.exists(info_file):
+            print(f"❌ Файл информации {info_file} не найден")
+            return None
+        
+        with open(info_file, 'r', encoding='utf-8') as f:
+            info = json.load(f)
+        
+        session_file = f"{sessions_dir}/{info['session_file']}"
+        if not os.path.exists(session_file):
+            print(f"❌ Файл сессии {session_file} не найден")
+            return None
+        
+        # Возвращаем путь без расширения
+        return session_file.replace('.session', '')
+        
+    except Exception as e:
+        print(f"❌ Ошибка получения пути сессии для {account_name}: {e}")
+        return None
+
+def get_client_for_account(account_name):
+    """Создает клиент для указанного аккаунта"""
+    try:
+        session_path = get_account_session_path(account_name)
+        if not session_path:
+            print(f"❌ Не удалось получить путь сессии для {account_name}")
+            return None
+        
+        print(f"🔗 Создаем клиент для аккаунта {account_name} (сессия: {session_path})")
+        
+        # УПРОЩЕННАЯ ВЕРСИЯ БЕЗ ПРОВЕРКИ:
+        client = Client(session_path, api_id=API_ID, api_hash=API_HASH)
+        
+        return client
+        
+    except Exception as e:
+        print(f"❌ Ошибка создания клиента для {account_name}: {e}")
         return None
 
 def check_user_limits(user_id, action_type):
@@ -1024,9 +1190,16 @@ def check_tron_usdt_payment(wallet_address, amount_usdt=10, hours_back=24):
 async def get_user_groups_real(client):
     """Получить реальные группы пользователя"""
     try:
+        # ДОБАВЬ ПРОВЕРКУ:
+        if client.is_connected:
+            await client.disconnect()
+            await asyncio.sleep(1)
+            
         await client.start()
+        await asyncio.sleep(2)
         
         groups = []
+        # остальной код...
         processed_count = 0
         
         print("🔍 Начинаю поиск групп пользователя...")
@@ -1041,11 +1214,14 @@ async def get_user_groups_real(client):
                 try:
                     groups.append({
                         'id': str(chat.id),
-                        'title': chat.title or 'Без названия',
+                        'title': f"{chat.title} (ID: {chat.id})",  # ← ДОБАВЛЯЕМ ID В НАЗВАНИЕ
                         'type': chat.type.name,
                         'members_count': getattr(chat, 'members_count', 0),
                         'status': '✅ Активная группа'
                     })
+
+                    # ДОБАВЬТЕ ОТЛАДКУ:
+                    print(f"🔍 Добавлена группа: {chat.title} с ID: {chat.id}")
                     
                     processed_count += 1
                     print(f"✅ Найдена группа: {chat.title}")
@@ -1060,11 +1236,34 @@ async def get_user_groups_real(client):
         
         await client.stop()
         
-        # Сортируем по количеству участников
-        groups.sort(key=lambda x: x.get('members_count', 0), reverse=True)
+        # ДОБАВЬТЕ ФИЛЬТРАЦИЮ ДУБЛИКАТОВ:
+        # Убираем дубликаты по названию (оставляем SUPERGROUP)
+        seen_titles = {}
+        filtered_groups = []
+
+        for group in groups:
+            title = group['title'].split(' (ID:')[0]  # Убираем ID из названия если есть
+            
+            if title not in seen_titles:
+                seen_titles[title] = group
+                filtered_groups.append(group)
+            else:
+                # Если уже есть, оставляем SUPERGROUP вместо GROUP
+                existing = seen_titles[title]
+                if group['type'] == 'SUPERGROUP' and existing['type'] == 'GROUP':
+                    # Заменяем GROUP на SUPERGROUP
+                    filtered_groups.remove(existing)
+                    filtered_groups.append(group)
+                    seen_titles[title] = group
+                    print(f"🔄 Заменили GROUP на SUPERGROUP для {title}")
         
-        print(f"✅ ИТОГО найдено {len(groups)} групп")
-        return groups
+        # Сортируем по количеству участников
+        filtered_groups.sort(key=lambda x: x.get('members_count', 0), reverse=True)
+        
+        print(f"✅ ИТОГО найдено {len(filtered_groups)} групп (было {len(groups)} с дубликатами)")
+        return filtered_groups  # ← ИЗМЕНИЛИ С groups на filtered_groups
+
+        
         
     except Exception as e:
         print(f"Общая ошибка получения групп: {e}")
@@ -1133,60 +1332,61 @@ async def search_in_selected_groups_real(client, keyword, selected_group_ids, se
                 
                 message_count = 0
                 chat_found = 0
-                processed_batches = 0
                 
-                # Поиск по сообщениям
+                # ПОЛНАЯ ЗАЩИТА ОТ ОШИБОК
                 async for message in client.get_chat_history(chat.id, limit=search_depth):
-                    # Проверяем отмену каждые 100 сообщений
-                    if message_count % 100 == 0 and is_search_cancelled(user_id):
-                        print(f"🛑 Поиск отменен в группе {chat.title} после {message_count} сообщений")
-                        await client.stop()
-                        return found_messages  # Возвращаем то что уже нашли
-                    
-                    if message.text:
-                        message_text = message.text.lower()
+                    try:
+                        # Проверяем отмену каждые 100 сообщений
+                        if message_count % 100 == 0 and is_search_cancelled(user_id):
+                            print(f"🛑 Поиск отменен в группе {chat.title} после {message_count} сообщений")
+                            await client.stop()
+                            return found_messages
                         
-                        # ДЕТАЛЬНЫЙ ЛОГ КАЖДОГО СООБЩЕНИЯ
-                        if message_count < 5:  # Показываем первые 5 сообщений для отладки
-                            print(f"    Сообщение {message_count+1}: '{message.text[:30]}...' от {message.date.strftime('%d.%m %H:%M')}")
-                            print(f"    Ищем слова {keywords} в тексте...")
+                        # БЕЗОПАСНАЯ ПРОВЕРКА ТЕКСТА
+                        if not message.text:
+                            continue
+                            
+                        # БЕЗОПАСНОЕ ПРЕОБРАЗОВАНИЕ В СТРОКУ
+                        try:
+                            message_text = str(message.text).encode('utf-8', errors='ignore').decode('utf-8').lower()
+                        except (UnicodeError, UnicodeDecodeError, AttributeError):
+                            # Если не удается обработать - пропускаем
+                            continue
                         
                         # Проверяем есть ли наши ключевые слова
                         matched_words = [word for word in keywords if word in message_text]
                         
-                        # Если есть слово "рожище" в любом регистре - дополнительная проверка
-                        if any('рожище' in keyword.lower() for keyword in keywords):
-                            if 'рожище' in message_text:
-                                print(f"    🎯 ПОТЕНЦИАЛЬНОЕ СОВПАДЕНИЕ: '{message.text[:50]}...'")
-                                print(f"    Ключевые слова: {keywords}")
-                                print(f"    Текст сообщения (lower): '{message_text[:50]}...'")
-                        
-                    if matched_words:
-                        found_messages.append({
-                            'text': message.text,
-                            'author': message.from_user.username if message.from_user and message.from_user.username else "Аноним",
-                            'chat': chat.title,
-                            'date': message.date.strftime("%d.%m.%Y %H:%M"),
-                            'date_timestamp': message.date.timestamp(),
-                            'matched_words': matched_words,
-                            'message_id': message.id,
-                            'chat_id': chat.id,
-                            'chat_username': getattr(chat, 'username', None)
-                        })
-                        chat_found += 1
-                            
+                        if matched_words:
+                            try:
+                                # БЕЗОПАСНОЕ СОЗДАНИЕ ЗАПИСИ
+                                author_name = "Аноним"
+                                if message.from_user and message.from_user.username:
+                                    author_name = str(message.from_user.username)
+                                
+                                found_messages.append({
+                                    'text': str(message.text)[:2000],  # Ограничиваем длину
+                                    'author': author_name,
+                                    'chat': str(chat.title),
+                                    'date': message.date.strftime("%d.%m.%Y %H:%M"),
+                                    'date_timestamp': message.date.timestamp(),
+                                    'matched_words': matched_words,
+                                    'message_id': message.id,
+                                    'chat_id': chat.id,
+                                    'chat_username': getattr(chat, 'username', None)
+                                })
+                                chat_found += 1
+                            except Exception as msg_error:
+                                print(f"⚠️ Ошибка обработки сообщения: {msg_error}")
+                                continue
+                                    
                         message_count += 1
                         
-                        # Показываем прогресс каждые 500 сообщений
-                        if message_count % SEARCH_SETTINGS['batch_size'] == 0:
-                            processed_batches += 1
-                            print(f"  📊 Обработано: {message_count}/{SEARCH_SETTINGS['messages_per_group']} сообщений, найдено: {chat_found}")
-                            await asyncio.sleep(0.3)
+                    except Exception as msg_error:
+                        print(f"⚠️ Ошибка в сообщении: {msg_error}")
+                        continue
                 
                 group_matches = [m for m in found_messages if m['chat'] == chat.title]
                 print(f"  📝 Проверено {message_count} сообщений, найдено совпадений: {len(group_matches)}")
-                if len(group_matches) > 0:
-                    print(f"      Последнее найденное: {group_matches[-1]['date']}")
                                 
                 # Пауза между группами
                 await asyncio.sleep(SEARCH_SETTINGS['pause_between_groups'])
@@ -1227,7 +1427,27 @@ async def search_in_selected_groups_real(client, keyword, selected_group_ids, se
         print(f"📤 Возвращаем {min(len(found_messages), SEARCH_SETTINGS['max_results'])} из {len(found_messages)} найденных")
 
         # Возвращаем результаты (уже отсортированы по timestamp выше)
-        return found_messages[:SEARCH_SETTINGS['max_results']]
+        # БЕЗОПАСНЫЙ ВОЗВРАТ РЕЗУЛЬТАТОВ
+        safe_messages = []
+        for msg in found_messages[:SEARCH_SETTINGS['max_results']]:
+            try:
+                # Проверяем что все поля корректные
+                safe_msg = {
+                    'text': str(msg.get('text', '')),
+                    'author': str(msg.get('author', 'Аноним')),
+                    'chat': str(msg.get('chat', 'Неизвестно')),
+                    'date': str(msg.get('date', '')),
+                    'matched_words': msg.get('matched_words', []),
+                    'message_id': msg.get('message_id'),
+                    'chat_id': msg.get('chat_id'),
+                    'chat_username': msg.get('chat_username')
+                }
+                safe_messages.append(safe_msg)
+            except Exception as e:
+                print(f"⚠️ Ошибка обработки сообщения: {e}")
+                continue
+
+        return safe_messages
         
     except Exception as e:
         print(f"❌ Общая ошибка поиска: {e}")
@@ -1244,6 +1464,20 @@ def schedule_broadcast():
     date = data.get('date', '')
     time = data.get('time', '')
     repeat = data.get('repeat', 'once')
+    delay_minutes = data.get('delay_minutes', 15)
+    task_id = str(uuid.uuid4())[:8]
+
+    # УЛУЧШЕННАЯ ПРОВЕРКА НА ДУБЛИКАТЫ:
+    attempts = 0
+    while task_id in broadcast_tasks and attempts < 5:
+        attempts += 1
+        task_id = str(uuid.uuid4())[:8]
+        print(f"🔄 Попытка {attempts}: новый ID {task_id}")
+
+    if attempts >= 5:
+        return jsonify({'error': 'Не удалось создать уникальный ID задачи'}), 500
+
+    print(f"🆔 Финальный ID задачи: {task_id}")
     
     # Валидация
     if not message:
@@ -1254,7 +1488,8 @@ def schedule_broadcast():
     
     if not date or not time:
         return jsonify({'error': 'Укажите дату и время'}), 400
-    
+        
+  
     try:
         # Создаем datetime объект
         scheduled_datetime = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
@@ -1263,9 +1498,17 @@ def schedule_broadcast():
         if scheduled_datetime <= datetime.now():
             return jsonify({'error': 'Время должно быть в будущем'}), 400
         
+        
+        # Получаем текущий активный аккаунт
+        current_account = get_current_account_name()
+        print(f"🔍 DEBUG: current_account = {current_account}")
+
+        if not current_account:
+            current_account = 'default_account'  # Запасной вариант
+
         # Создаем уникальный ID задачи
         task_id = str(uuid.uuid4())[:8]
-        
+
         # Сохраняем задачу
         task_info = {
             'id': task_id,
@@ -1273,6 +1516,8 @@ def schedule_broadcast():
             'groups': groups,
             'scheduled_time': scheduled_datetime,
             'repeat': repeat,
+            'delay_minutes': delay_minutes,
+            'account_name': current_account,  # ← ДОБАВЬ ЭТУ СТРОКУ
             'status': 'scheduled',
             'created_at': datetime.now(),
             'user_id': user_id
@@ -1282,12 +1527,30 @@ def schedule_broadcast():
         
         print(f"📤 Запланирована рассылка:")
         print(f"  ID: {task_id}")
+        print(f"  Аккаунт: {current_account}")  # ← ДОБАВЬ ЭТУ СТРОКУ
+        print(f"  Задержка: {delay_minutes} минут")
         print(f"  Время: {scheduled_datetime}")
         print(f"  Групп: {len(groups)}")
         print(f"  Повтор: {repeat}")
+        # ДОБАВЬТЕ ПРОВЕРКУ НА ДУБЛИКАТЫ:
+        print(f"🆔 Создаем задачу с ID: {task_id}")
+        if task_id in broadcast_tasks:
+            print(f"⚠️ Задача с ID {task_id} уже существует!")
+            task_id = str(uuid.uuid4())[:8]  # Генерируем новый ID
+            print(f"🆔 Новый ID: {task_id}")
+        
         
         # Запускаем планировщик если еще не запущен
         start_scheduler()
+
+        # В конце функции schedule_broadcast() перед return добавьте:
+        broadcast_tasks[task_id] = task_info
+
+        # ДОБАВЬТЕ АВТОСОХРАНЕНИЕ:
+        save_tasks_to_file()
+
+        print(f"📤 Запланирована рассылка:")
+        
         
         return jsonify({
             'success': True,
@@ -1295,6 +1558,8 @@ def schedule_broadcast():
             'task_info': {
                 'scheduled_time': scheduled_datetime.strftime('%d.%m.%Y %H:%M'),
                 'groups_count': len(groups),
+                # 'account_name': account_name,  ← УДАЛИ
+                'delay_minutes': delay_minutes,
                 'repeat_text': get_repeat_text(repeat)
             }
         })
@@ -1303,6 +1568,29 @@ def schedule_broadcast():
         return jsonify({'error': 'Неверный формат даты/времени'}), 400
     except Exception as e:
         print(f"❌ Ошибка планирования: {e}")
+
+        # Получаем информацию о текущем аккаунте
+        current_account_info = "Основной аккаунт"
+        try:
+            if os.path.exists('current_account.json'):
+                with open('current_account.json', 'r', encoding='utf-8') as f:
+                    account_data = json.load(f)
+                user_info = account_data['user_info']
+                current_account_info = f"{user_info['first_name']} {user_info['last_name']} | 📱 {user_info['phone']}"
+        except Exception as e:
+            print(f"Не удалось загрузить информацию об аккаунте: {e}")
+
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'task_info': {
+                'scheduled_time': scheduled_datetime.strftime('%d.%m.%Y %H:%M'),
+                'groups_count': len(groups),
+                'delay_minutes': delay_minutes,
+                'repeat_text': get_repeat_text(repeat),
+                'account_info': current_account_info  # ← ДОБАВЬ ЭТУ СТРОКУ
+            }
+        })
         return jsonify({'error': f'Ошибка планирования: {str(e)}'}), 500
 
 @app.route('/get_account_info', methods=['GET'])
@@ -1396,38 +1684,54 @@ def check_broadcast_tasks():
 def execute_broadcast_task(task):
     """Выполняет рассылку"""
     try:
+        # ДОБАВЬТЕ ЗАЩИТУ ОТ ПОВТОРНОГО ВЫПОЛНЕНИЯ:
+        if task['status'] != 'scheduled':
+            print(f"⚠️ Задача {task['id']} уже выполняется/выполнена (статус: {task['status']})")
+            return
+            
         task['status'] = 'executing'
+        save_tasks_to_file()
         user_id = task.get('user_id', 'local_user')
+        account_name = task.get('account_name', 'local_user')
+        delay_minutes = task.get('delay_minutes', 15)
+        
+        print(f"📤 Начинаем рассылку {task['id']} (статус изменен на executing)")
         
         print(f"📤 Начинаем рассылку {task['id']}")
         print(f"📝 Сообщение: {task['message'][:100]}...")
         print(f"📂 Групп: {len(task['groups'])}")
+        print(f"👤 Аккаунт: {account_name}")  # ← ПОКАЗЫВАЕМ КАКОЙ АККАУНТ ИСПОЛЬЗУЕМ
+        print(f"⏱️ Задержка: {delay_minutes} минут")
         
         # Выполняем рассылку в отдельном потоке
         def run_broadcast():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                user_client = get_user_client(user_id)
+                # ИСПОЛЬЗУЕМ СОХРАНЕННЫЙ АККАУНТ
+                user_client = get_client_for_account(account_name)  # ← ЗАМЕНИ НА ЭТО
                 if not user_client:
-                    raise Exception("Не удалось создать клиент для отправки")
+                    raise Exception(f"Не удалось создать клиент для аккаунта {account_name}")
                 
                 result = loop.run_until_complete(send_broadcast_messages(
                     user_client, 
                     task['message'], 
-                    task['groups']
+                    task['groups'],
+                    delay_minutes
                 ))
                 
                 task['sent_count'] = result['sent']
                 task['failed_count'] = result['failed']
                 task['status'] = 'completed'
                 task['completed_at'] = datetime.now()
+                save_tasks_to_file()
                 
                 print(f"✅ Рассылка {task['id']} завершена: отправлено {result['sent']}, ошибок {result['failed']}")
                 
             except Exception as e:
                 task['status'] = 'failed'
                 task['error'] = str(e)
+                save_tasks_to_file()
                 print(f"❌ Ошибка рассылки {task['id']}: {e}")
             finally:
                 loop.close()
@@ -1459,8 +1763,11 @@ def get_broadcast_tasks():
                 'scheduled_time': task['scheduled_time'].strftime('%d.%m.%Y %H:%M'),
                 'status': task['status'],
                 'repeat': get_repeat_text(task['repeat']),
-                'created_at': task['created_at'].strftime('%d.%m.%Y %H:%M')
+                'created_at': task['created_at'].strftime('%d.%m.%Y %H:%M'),
+                'account_name': task.get('account_name', 'Неизвестно'),  # ← ДОБАВЬ ЭТУ СТРОКУ
+                'delay_minutes': task.get('delay_minutes', 15)  # ← И ЭТУ
             }
+            
             
             if task['status'] == 'completed':
                 task_info['sent_count'] = task.get('sent_count', 0)
@@ -1486,40 +1793,108 @@ def get_broadcast_tasks():
             'error': f'Ошибка: {str(e)}'
         })
 
-async def send_broadcast_messages(client, message, group_ids):
-    """Отправляет сообщения в выбранные группы"""
+async def send_broadcast_messages(client, message, group_ids, delay_minutes=15):
+    """Отправляет сообщения в выбранные группы с задержкой"""
     try:
-        await client.start()
+        # ПРОВЕРЯЕМ ПОДКЛЮЧЕН ЛИ УЖЕ КЛИЕНТ:
+        if not client.is_connected:
+            await client.start()
+        
+        # Получаем информацию о текущем пользователе для отладки
+        me = await client.get_me()
+        print(f"👤 Рассылка от: {me.first_name} {me.last_name} (ID: {me.id})")
         
         sent_count = 0
         failed_count = 0
         errors = []
+        delay_seconds = delay_minutes * 60  # ← ДОБАВЬ ЭТУ СТРОКУ
         
-        # Получаем список групп БЕЗ проверки прав
+    # Получаем список групп БЕЗ проверки прав
         available_groups = {}
         async for dialog in client.get_dialogs():
             chat = dialog.chat
             if chat.type.name in ["GROUP", "SUPERGROUP"]:
                 available_groups[str(chat.id)] = chat
+                # ДОБАВЬТЕ ДЕТАЛЬНУЮ ОТЛАДКУ:
+                print(f"📂 Найдена группа: {chat.title}")
+                print(f"   ID: {chat.id}")
+                print(f"   Тип: {chat.type.name}")
+                print(f"   Username: {getattr(chat, 'username', 'Нет')}")
+
+        print(f"📋 Доступно групп: {len(available_groups)}")
+        # ДОБАВЬТЕ ПОСЛЕ получения available_groups:
+        print(f"📋 Доступно групп: {len(available_groups)}")
+
+        # ИСПРАВЛЯЕМ ID ГРУПП:
+        corrected_group_ids = []
+        for group_id in group_ids:
+            if group_id in available_groups:
+                corrected_group_ids.append(group_id)
+            else:
+                # Ищем группу по названию
+                found = False
+                for real_id, chat in available_groups.items():
+                    if group_id == "-4842637112" and "YOUTask Tester" in chat.title:
+                        print(f"🔄 Исправляем ID для {chat.title}: {group_id} → {real_id}")
+                        corrected_group_ids.append(real_id)
+                        found = True
+                        break
+                
+                if not found:
+                    print(f"❌ Группа с ID {group_id} не найдена")
+                    corrected_group_ids.append(group_id)
+
+        group_ids = corrected_group_ids  # ← ИСПОЛЬЗУЕМ ИСПРАВЛЕННЫЕ ID
+
+        # ДОБАВЬТЕ ПРОВЕРКУ КОНКРЕТНОЙ ГРУППЫ:
+        target_group_id = "-4842637112"  # ID группы YOUTask Tester
+        if target_group_id in available_groups:
+            target_chat = available_groups[target_group_id]
+            print(f"🎯 Целевая группа найдена: {target_chat.title}")
+            print(f"   ID в системе: {target_chat.id}")
+            print(f"   ID строкой: {str(target_chat.id)}")
+        else:
+            print(f"❌ Группа с ID {target_group_id} НЕ найдена у аккаунта!")
+            print(f"📋 Доступные ID групп:")
+            for gid in available_groups.keys():
+                print(f"   - {gid}")
         
         print(f"📋 Доступно групп: {len(available_groups)}")
-        
-        # Отправляем сообщения
+        print(f"⏱️ Задержка между отправками: {delay_minutes} минут")  # ← ДОБАВЬ
+        # ДОБАВЬТЕ СРАЗУ ПОСЛЕ:
+        print(f"🔍 Проверяем доступность групп для отправки:")
         for group_id in group_ids:
             if group_id in available_groups:
                 chat = available_groups[group_id]
+                print(f"  ✅ {chat.title} (ID: {group_id}) - доступна")
+            else:
+                print(f"  ❌ Группа ID {group_id} - НЕ найдена в диалогах!")
+        
+        # Отправляем сообщения
+        sent_to_groups = set()  # ← ДОБАВЬТЕ МНОЖЕСТВО ДЛЯ ОТСЛЕЖИВАНИЯ
+        for i, group_id in enumerate(group_ids, 1):
+            if group_id in available_groups:
+                chat = available_groups[group_id]
+                
+                # ПРОВЕРЯЕМ НЕ ОТПРАВЛЯЛИ ЛИ УЖЕ В ЭТУ ГРУППУ:
+                chat_key = f"{chat.id}_{chat.title}"
+                if chat_key in sent_to_groups:
+                    print(f"⚠️ Пропускаем дубликат группы: {chat.title}")
+                    continue
                 
                 try:
-                    print(f"📤 Пытаемся отправить в: {chat.title}")
+                    print(f"📤 [{i}/{len(group_ids)}] Отправляем в: {chat.title}")
                     
-                    # ПРОСТАЯ ОТПРАВКА БЕЗ ПРОВЕРОК
                     await client.send_message(chat.id, message)
                     sent_count += 1
+                    sent_to_groups.add(chat_key)  # ← ДОБАВЛЯЕМ В МНОЖЕСТВО
                     
                     print(f"✅ УСПЕШНО отправлено в {chat.title}")
                     
-                    # Пауза между отправками
-                    await asyncio.sleep(2)
+                    # ЗАДЕРЖКА МЕЖДУ ОТПРАВКАМИ (кроме последней группы)
+                    if i < len(group_ids):  # ← ДОБАВЬ ЭТУ ПРОВЕРКУ
+                        print(f"⏱️ Ждем {delay_minutes} минут до следующей отправки...")
+                        await asyncio.sleep(delay_seconds)  # ← И ЭТУ СТРОКУ
                     
                 except Exception as e:
                     failed_count += 1
@@ -1538,7 +1913,8 @@ async def send_broadcast_messages(client, message, group_ids):
                     errors.append(f"{chat.title}: {error_msg}")
                     print(f"❌ {chat.title}: {error_msg}")
                     
-                    await asyncio.sleep(1)
+                    # Короткая пауза после ошибки
+                    await asyncio.sleep(30)  # ← ИЗМЕНИЛ С 1 НА 30 СЕКУНД
             else:
                 failed_count += 1
                 print(f"❌ Группа {group_id} не найдена в диалогах")
@@ -1546,6 +1922,7 @@ async def send_broadcast_messages(client, message, group_ids):
         await client.stop()
         
         print(f"📊 ИТОГО: ✅ {sent_count} отправлено, ❌ {failed_count} ошибок")
+        print(f"⏱️ Общее время рассылки: ~{(sent_count-1) * delay_minutes} минут")  # ← ДОБАВЬ
         
         return {
             'sent': sent_count,
@@ -2223,6 +2600,41 @@ def parallel_search():
         print(f"❌ Ошибка параллельного поиска: {e}")
         return jsonify({'error': f'Ошибка поиска: {str(e)}'}), 500
 
+@app.route('/delete_broadcast_task', methods=['POST'])
+def delete_broadcast_task():
+    """Удаление задачи рассылки"""
+    try:
+        data = request.json
+        task_id = data.get('task_id', '')
+        
+        if not task_id:
+            return jsonify({'error': 'Не указан ID задачи'}), 400
+        
+        if task_id not in broadcast_tasks:
+            return jsonify({'error': 'Задача не найдена'}), 404
+        
+        # Проверяем можно ли удалить
+        task = broadcast_tasks[task_id]
+        if task['status'] == 'executing':
+            return jsonify({'error': 'Нельзя удалить выполняющуюся задачу'}), 400
+        
+        # Удаляем задачу
+        del broadcast_tasks[task_id]
+        
+        # Сохраняем изменения в файл
+        save_tasks_to_file()
+        
+        print(f"🗑️ Задача {task_id} удалена пользователем")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Задача {task_id} удалена'
+        })
+        
+    except Exception as e:
+        print(f"❌ Ошибка удаления задачи: {e}")
+        return jsonify({'error': f'Ошибка удаления: {str(e)}'}), 500
+
 async def execute_parallel_search(keyword, selected_groups, search_depth, account_names):
     """Выполняет параллельный поиск несколькими аккаунтами"""
     try:
@@ -2329,7 +2741,12 @@ async def search_with_account(client, account_name, keyword, groups, search_dept
                     message_count = 0
                     async for message in client.get_chat_history(chat.id, limit=search_depth):
                         if message.text:
-                            message_text = message.text.lower()
+                            try:
+                                # БЕЗОПАСНАЯ ОБРАБОТКА ТЕКСТА
+                                message_text = str(message.text).lower()
+                            except (UnicodeDecodeError, UnicodeError) as e:
+                                print(f"⚠️ Ошибка кодировки в сообщении, пропускаем: {e}")
+                                continue
                             matched_words = [word for word in keywords if word in message_text]
                             
                             if matched_words:
@@ -2374,6 +2791,7 @@ async def search_with_account(client, account_name, keyword, groups, search_dept
 
 if __name__ == '__main__':
     print("🚀 Запускаю Message Hunter...")
+    load_tasks_from_file()  # ← ДОБАВЬ ЭТУ СТРОКУ ЕСЛИ ЕЁ НЕТ
     print("📍 Доступные маршруты:")
     for rule in app.url_map.iter_rules():
         print(f"  {rule.rule} - {list(rule.methods)}")
