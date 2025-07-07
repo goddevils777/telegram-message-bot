@@ -386,7 +386,8 @@
                 if (data.success) {
                     showStatus('success', '✅ Сессия активирована! Перенаправляем...');
                     setTimeout(() => {
-                        window.location.href = '/';
+                        // ДОБАВЛЯЕМ ПАРАМЕТР ДЛЯ ОБНОВЛЕНИЯ ГРУПП
+                        window.location.href = '/?refresh_groups=true';
                     }, 2000);
                 } else {
                     showStatus('error', `❌ ${data.error}`);

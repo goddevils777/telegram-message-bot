@@ -19,6 +19,7 @@ import signal
 import schedule
 import uuid
 
+
 TASKS_FILE = 'broadcast_tasks.json'
 
 # Инициализация приложения
@@ -39,6 +40,15 @@ SEARCH_LOCK = threading.Lock()
 # Система множественных клиентов
 active_clients = {}  # Хранилище активных клиентов {account_name: client}
 client_managers = {}  # Менеджеры клиентов для каждого аккаунта
+
+# Система автопоиска
+auto_search_active = False
+auto_search_keywords = []
+auto_search_groups = []
+auto_search_results = []
+auto_search_thread = None
+auto_search_stop_event = None
+auto_search_last_check = {}  # {group_id: last_message_id}
 
 class MultiAccountManager:
     def __init__(self):
@@ -547,7 +557,6 @@ def get_telegram_user_info():
 @app.route('/get_groups', methods=['GET'])
 def get_groups():
     """Получить список групп пользователя для локальной версии"""
-    # Для локальной версии используем статичного пользователя
     user_id = 'local_user'
     
     if not is_user_account_connected(user_id):
@@ -563,6 +572,10 @@ def get_groups():
                     return []
                 
                 groups = loop.run_until_complete(get_user_groups_real(user_client))
+                
+                # СОХРАНЯЕМ В КЭШ
+                save_groups_cache(groups)
+                
                 return groups
             finally:
                 loop.close()
@@ -570,7 +583,7 @@ def get_groups():
         future = executor.submit(run_get_groups)
         groups = future.result(timeout=60)
         
-        print(f"✅ Получено {len(groups)} реальных групп")
+        print(f"✅ Получено {len(groups)} реальных групп и сохранено в кэш")
         
         return jsonify({
             'success': True,
@@ -1458,6 +1471,7 @@ def schedule_broadcast():
     """Планирование рассылки сообщений"""
     user_id = 'local_user'
     
+    # Получаем данные формы
     data = request.json
     message = data.get('message', '').strip()
     groups = data.get('groups', [])
@@ -1465,6 +1479,7 @@ def schedule_broadcast():
     time = data.get('time', '')
     repeat = data.get('repeat', 'once')
     delay_minutes = data.get('delay_minutes', 15)
+    random_sending = data.get('random_sending', False)  # ← ЭТА СТРОКА ДОЛЖНА БЫТЬ
     task_id = str(uuid.uuid4())[:8]
 
     # УЛУЧШЕННАЯ ПРОВЕРКА НА ДУБЛИКАТЫ:
@@ -1517,11 +1532,13 @@ def schedule_broadcast():
             'scheduled_time': scheduled_datetime,
             'repeat': repeat,
             'delay_minutes': delay_minutes,
-            'account_name': current_account,  # ← ДОБАВЬ ЭТУ СТРОКУ
+            'random_sending': random_sending,  # ← НОВОЕ ПОЛЕ
+            'account_name': current_account,
             'status': 'scheduled',
             'created_at': datetime.now(),
             'user_id': user_id
         }
+        print(f"🎲 Создаем задачу с random_sending: {random_sending}")
         
         broadcast_tasks[task_id] = task_info
         
@@ -1532,35 +1549,28 @@ def schedule_broadcast():
         print(f"  Время: {scheduled_datetime}")
         print(f"  Групп: {len(groups)}")
         print(f"  Повтор: {repeat}")
-        # ДОБАВЬТЕ ПРОВЕРКУ НА ДУБЛИКАТЫ:
-        print(f"🆔 Создаем задачу с ID: {task_id}")
-        if task_id in broadcast_tasks:
-            print(f"⚠️ Задача с ID {task_id} уже существует!")
-            task_id = str(uuid.uuid4())[:8]  # Генерируем новый ID
-            print(f"🆔 Новый ID: {task_id}")
+
         
         
         # Запускаем планировщик если еще не запущен
         start_scheduler()
 
-        # В конце функции schedule_broadcast() перед return добавьте:
-        broadcast_tasks[task_id] = task_info
-
-        # ДОБАВЬТЕ АВТОСОХРАНЕНИЕ:
-        save_tasks_to_file()
-
         print(f"📤 Запланирована рассылка:")
         
         
+        # Получаем информацию о текущем аккаунте для отображения
+        current_account_display = get_account_display_name(current_account)
+
         return jsonify({
             'success': True,
             'task_id': task_id,
             'task_info': {
                 'scheduled_time': scheduled_datetime.strftime('%d.%m.%Y %H:%M'),
                 'groups_count': len(groups),
-                # 'account_name': account_name,  ← УДАЛИ
                 'delay_minutes': delay_minutes,
-                'repeat_text': get_repeat_text(repeat)
+                'repeat_text': get_repeat_text(repeat),
+                'account_info': current_account_display,  # ← ИСПРАВЛЕННАЯ СТРОКА
+                'random_sending': random_sending  # ← ДОБАВЬ И ЭТУ
             }
         })
         
@@ -1653,6 +1663,162 @@ def get_repeat_text(repeat):
     }
     return repeat_texts.get(repeat, 'Неизвестно')
 
+def get_repeat_text(repeat):
+    """Преобразует код повтора в читаемый текст"""
+    repeat_texts = {
+        'once': 'Однократно',
+        'daily': 'Каждый день',
+        'weekly': 'Каждую неделю',
+        'monthly': 'Каждый месяц'
+    }
+    return repeat_texts.get(repeat, 'Неизвестно')
+
+def get_account_display_name(account_name):
+    """Получает отображаемое имя аккаунта"""
+    try:
+        if account_name == 'local_user':
+            # Пробуем получить из current_account.json
+            if os.path.exists('current_account.json'):
+                with open('current_account.json', 'r', encoding='utf-8') as f:
+                    account_data = json.load(f)
+                user_info = account_data['user_info']
+                return f"{user_info['first_name']} {user_info['last_name']} | 📱 {user_info['phone']}"
+            return "Основной аккаунт"
+        
+        # Для других аккаунтов
+        sessions_dir = 'sessions'
+        info_file = f"{sessions_dir}/{account_name}_info.json"
+        
+        if os.path.exists(info_file):
+            with open(info_file, 'r', encoding='utf-8') as f:
+                info = json.load(f)
+            user_info = info['user_info']
+            return f"{user_info['first_name']} {user_info['last_name']} | 📱 {user_info['phone']}"
+        
+        return f"Аккаунт {account_name}"
+        
+    except Exception as e:
+        print(f"❌ Ошибка получения имени аккаунта {account_name}: {e}")
+        return f"Аккаунт {account_name}"
+
+def save_groups_cache(groups_data):
+    """Сохраняет кэш групп в файл"""
+    try:
+        cache_data = {
+            'groups': groups_data,
+            'cached_at': time.time(),
+            'expires_at': time.time() + (24 * 60 * 60)  # 24 часа
+        }
+        
+        os.makedirs('cache', exist_ok=True)
+        with open('cache/groups_cache.json', 'w', encoding='utf-8') as f:
+            json.dump(cache_data, f, ensure_ascii=False, indent=2)
+        
+        print(f"💾 Кэш групп сохранен: {len(groups_data)} групп")
+        
+    except Exception as e:
+        print(f"❌ Ошибка сохранения кэша групп: {e}")
+
+def load_groups_cache():
+    """Загружает кэш групп из файла"""
+    try:
+        cache_file = 'cache/groups_cache.json'
+        if not os.path.exists(cache_file):
+            return None
+        
+        with open(cache_file, 'r', encoding='utf-8') as f:
+            cache_data = json.load(f)
+        
+        # Проверяем не истёк ли кэш
+        if time.time() > cache_data.get('expires_at', 0):
+            print("⏰ Кэш групп истёк")
+            return None
+        
+        print(f"📋 Загружен кэш групп: {len(cache_data['groups'])} групп")
+        return cache_data['groups']
+        
+    except Exception as e:
+        print(f"❌ Ошибка загрузки кэша групп: {e}")
+        return None
+
+def get_group_name_by_id(group_id):
+    """Получает название группы по ID из кэша"""
+    try:
+        cached_groups = load_groups_cache()
+        if not cached_groups:
+            return f"Группа {group_id[-8:]}"
+        
+        for group in cached_groups:
+            if str(group.get('id')) == str(group_id):
+                return group.get('title', f"Группа {group_id[-8:]}")
+        
+        return f"Группа {group_id[-8:]}"
+        
+    except Exception as e:
+        print(f"❌ Ошибка получения названия группы: {e}")
+        return f"Группа {group_id[-8:]}"
+
+def get_group_names_for_task(group_ids):
+    """Получает названия групп по их ID"""
+    try:
+        # Пробуем получить названия групп из кэша
+        group_names = []
+        
+        # Можно попробовать загрузить из активной сессии
+        def get_group_names():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                current_account = get_current_account_name()
+                client = get_client_for_account(current_account)
+                if not client:
+                    return []
+                
+                names = loop.run_until_complete(fetch_group_names(client, group_ids))
+                return names
+            except:
+                return []
+            finally:
+                loop.close()
+        
+        # Запускаем в отдельном потоке с таймаутом
+        try:
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(get_group_names)
+                group_names = future.result(timeout=3)  # 3 секунды максимум
+        except:
+            # Если не удалось получить названия, возвращаем ID
+            group_names = [f"Группа {gid[-8:]}" for gid in group_ids[:3]]
+        
+        # Ограничиваем до 3 групп для отображения
+        if len(group_names) > 3:
+            return group_names[:3] + [f"и еще {len(group_names) - 3}"]
+        
+        return group_names
+        
+    except Exception as e:
+        print(f"❌ Ошибка получения названий групп: {e}")
+        return [f"Группа {gid[-8:]}" for gid in group_ids[:3]]
+
+async def fetch_group_names(client, group_ids):
+    """Получает названия групп асинхронно"""
+    try:
+        await client.start()
+        group_names = []
+        
+        async for dialog in client.get_dialogs():
+            chat = dialog.chat
+            if str(chat.id) in group_ids:
+                group_names.append(chat.title)
+                if len(group_names) >= 3:  # Ограничиваем
+                    break
+        
+        await client.stop()
+        return group_names
+    except:
+        return []
+
 def start_scheduler():
     """Запускает планировщик задач"""
     global scheduler_thread
@@ -1681,9 +1847,14 @@ def check_broadcast_tasks():
             print(f"🚀 Выполняем рассылку {task_id}")
             execute_broadcast_task(task)
 
+
 def execute_broadcast_task(task):
     """Выполняет рассылку"""
     try:
+        # Проверяем режим рандомной отправки
+        if task.get('random_sending', False):
+            execute_random_broadcast_task(task)
+            return
         # ДОБАВЬТЕ ЗАЩИТУ ОТ ПОВТОРНОГО ВЫПОЛНЕНИЯ:
         if task['status'] != 'scheduled':
             print(f"⚠️ Задача {task['id']} уже выполняется/выполнена (статус: {task['status']})")
@@ -1749,6 +1920,91 @@ def execute_broadcast_task(task):
         task['error'] = str(e)
         print(f"❌ Ошибка рассылки {task['id']}: {e}")
 
+def execute_random_broadcast_task(task):
+    """Выполняет рандомную рассылку с распределением по 24 часам"""
+    try:
+        if task['status'] != 'scheduled':
+            print(f"⚠️ Задача {task['id']} уже выполняется/выполнена")
+            return
+            
+        task['status'] = 'executing'
+        save_tasks_to_file()
+        
+        user_id = task.get('user_id', 'local_user')
+        account_name = task.get('account_name', 'local_user')
+        
+        print(f"🎲 Начинаем рандомную рассылку {task['id']}")
+        print(f"📝 Сообщение: {task['message'][:100]}...")
+        print(f"📂 Групп: {len(task['groups'])}")
+        print(f"👤 Аккаунт: {account_name}")
+        
+        # Создаем случайные времена отправки для каждой группы
+        import random
+        group_schedule = []
+        base_time = datetime.now()
+        
+        for group_id in task['groups']:
+            # Случайное время в течение 24 часов
+            random_minutes = random.randint(0, 24 * 60)  # 0-1440 минут
+            send_time = base_time + timedelta(minutes=random_minutes)
+            group_schedule.append({
+                'group_id': group_id,
+                'send_time': send_time
+            })
+        
+        # Сортируем по времени отправки
+        group_schedule.sort(key=lambda x: x['send_time'])
+        
+        print(f"🕒 Создано расписание для {len(group_schedule)} групп:")
+        for i, item in enumerate(group_schedule[:3]):  # Показываем первые 3
+            print(f"  Группа {i+1}: {item['send_time'].strftime('%H:%M')}")
+        if len(group_schedule) > 3:
+            print(f"  ... и еще {len(group_schedule) - 3} групп")
+        
+        # Запускаем рандомную рассылку
+        def run_random_broadcast():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                user_client = get_client_for_account(account_name)
+                if not user_client:
+                    raise Exception(f"Не удалось создать клиент для аккаунта {account_name}")
+                
+                result = loop.run_until_complete(send_random_broadcast_messages(
+                    user_client, 
+                    task['message'], 
+                    group_schedule
+                ))
+                
+                task['sent_count'] = result['sent']
+                task['failed_count'] = result['failed']
+                task['status'] = 'completed'
+                task['completed_at'] = datetime.now()
+                save_tasks_to_file()
+                
+                print(f"✅ Рандомная рассылка {task['id']} завершена: отправлено {result['sent']}, ошибок {result['failed']}")
+                
+            except Exception as e:
+                task['status'] = 'failed'
+                task['error'] = str(e)
+                save_tasks_to_file()
+                print(f"❌ Ошибка рандомной рассылки {task['id']}: {e}")
+            finally:
+                loop.close()
+        
+        # Запускаем в отдельном потоке
+        broadcast_thread = threading.Thread(target=run_random_broadcast, daemon=True)
+        broadcast_thread.start()
+        
+        # Планируем повторную отправку если нужно
+        if task['repeat'] != 'once':
+            schedule_next_repeat(task)
+            
+    except Exception as e:
+        task['status'] = 'failed'
+        task['error'] = str(e)
+        print(f"❌ Ошибка рандомной рассылки {task['id']}: {e}")
+
 @app.route('/get_broadcast_tasks', methods=['GET'])
 def get_broadcast_tasks():
     """Получение списка задач рассылки"""
@@ -1756,18 +2012,36 @@ def get_broadcast_tasks():
         tasks_list = []
         
         for task_id, task in broadcast_tasks.items():
+            # Получаем информацию об аккаунте
+            account_name = task.get('account_name', 'local_user')
+            account_display = get_account_display_name(account_name)
+
+            # Получаем названия групп из кэша
+            task_groups = task.get('groups', [])
+            group_names = []
+
+            for group_id in task_groups[:3]:  # Берем только первые 3
+                group_name = get_group_name_by_id(group_id)
+                group_names.append(group_name)
+
+            if len(task_groups) > 3:
+                group_names.append(f"и еще {len(task_groups) - 3}")
+
             task_info = {
                 'id': task_id,
                 'message_preview': task['message'][:50] + '...' if len(task['message']) > 50 else task['message'],
                 'groups_count': len(task['groups']),
+                'group_names': group_names,
                 'scheduled_time': task['scheduled_time'].strftime('%d.%m.%Y %H:%M'),
                 'status': task['status'],
                 'repeat': get_repeat_text(task['repeat']),
                 'created_at': task['created_at'].strftime('%d.%m.%Y %H:%M'),
-                'account_name': task.get('account_name', 'Неизвестно'),  # ← ДОБАВЬ ЭТУ СТРОКУ
-                'delay_minutes': task.get('delay_minutes', 15)  # ← И ЭТУ
+                'account_name': account_name,
+                'account_display': account_display,
+                'delay_minutes': task.get('delay_minutes', 15),
+                'random_sending': task.get('random_sending', False)  # ← ДОБАВЬ ЭТУ СТРОКУ
             }
-            
+                        
             
             if task['status'] == 'completed':
                 task_info['sent_count'] = task.get('sent_count', 0)
@@ -2390,6 +2664,15 @@ def use_session():
         with open('current_account.json', 'w', encoding='utf-8') as f:
             json.dump(current_account_info, f, ensure_ascii=False, indent=2)
         
+        # ОЧИЩАЕМ КЭШ ГРУПП ПРИ СМЕНЕ АККАУНТА
+        try:
+            cache_file = 'cache/groups_cache.json'
+            if os.path.exists(cache_file):
+                os.remove(cache_file)
+                print("🗑️ Кэш групп очищен при смене аккаунта")
+        except Exception as e:
+            print(f"⚠️ Не удалось очистить кэш групп: {e}")
+        
         global REQUIRES_AUTH
         REQUIRES_AUTH = False
         
@@ -2399,7 +2682,8 @@ def use_session():
         return jsonify({
             'success': True,
             'message': 'Сессия активирована',
-            'user_info': session_info['user_info']
+            'user_info': session_info['user_info'],
+            'need_groups_refresh': True  # ← НОВОЕ ПОЛЕ
         })
         
     except Exception as e:
@@ -2482,6 +2766,18 @@ def get_current_account():
 def switch_account():
     """Переход к выбору аккаунта"""
     global REQUIRES_AUTH
+    
+    print("🔄 Запрос смены аккаунта")
+    
+    # Очищаем кэш групп при смене аккаунта
+    try:
+        cache_file = 'cache/groups_cache.json'
+        if os.path.exists(cache_file):
+            os.remove(cache_file)
+            print("🗑️ Кэш групп очищен при смене аккаунта")
+    except Exception as e:
+        print(f"⚠️ Не удалось очистить кэш групп: {e}")
+    
     REQUIRES_AUTH = True
     
     return jsonify({
@@ -2634,6 +2930,43 @@ def delete_broadcast_task():
     except Exception as e:
         print(f"❌ Ошибка удаления задачи: {e}")
         return jsonify({'error': f'Ошибка удаления: {str(e)}'}), 500
+
+@app.route('/refresh_groups_cache', methods=['POST'])
+def refresh_groups_cache():
+    """Принудительное обновление кэша групп"""
+    user_id = 'local_user'
+    
+    if not is_user_account_connected(user_id):
+        return jsonify({'error': 'Сначала добавьте API ключи'}), 403
+    
+    try:
+        print("🔄 Принудительное обновление кэша групп...")
+        
+        def run_refresh():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                user_client = get_user_client(user_id)
+                if not user_client:
+                    return []
+                
+                groups = loop.run_until_complete(get_user_groups_real(user_client))
+                save_groups_cache(groups)
+                return groups
+            finally:
+                loop.close()
+        
+        future = executor.submit(run_refresh)
+        groups = future.result(timeout=60)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Кэш обновлен: {len(groups)} групп',
+            'groups': groups
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Ошибка обновления: {str(e)}'}), 500
 
 async def execute_parallel_search(keyword, selected_groups, search_depth, account_names):
     """Выполняет параллельный поиск несколькими аккаунтами"""
@@ -2788,6 +3121,272 @@ async def search_with_account(client, account_name, keyword, groups, search_dept
     except Exception as e:
         print(f"[{account_name}] ❌ Критическая ошибка: {e}")
         raise e
+
+@app.route('/start_auto_search', methods=['POST'])
+def start_auto_search():
+    """Запуск автопоиска в реальном времени"""
+    global auto_search_active, auto_search_keywords, auto_search_groups, auto_search_thread, auto_search_stop_event
+    
+    try:
+        data = request.json
+        keywords = data.get('keywords', [])
+        groups = data.get('groups', [])
+        
+        if not keywords:
+            return jsonify({'error': 'Не указаны ключевые слова'}), 400
+            
+        if not groups:
+            return jsonify({'error': 'Не выбраны группы для мониторинга'}), 400
+        
+        if auto_search_active:
+            return jsonify({'error': 'Автопоиск уже запущен'}), 400
+        
+        # Сохраняем параметры
+        auto_search_keywords = keywords
+        auto_search_groups = groups
+        auto_search_active = True
+        
+        # Запускаем мониторинг в отдельном потоке
+        auto_search_stop_event = threading.Event()
+        auto_search_thread = threading.Thread(
+            target=run_auto_search_monitoring, 
+            daemon=True
+        )
+        auto_search_thread.start()
+        
+        print(f"⚡ Автопоиск запущен:")
+        print(f"  Ключевые слова: {keywords}")
+        print(f"  Групп для мониторинга: {len(groups)}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Автопоиск запущен',
+            'keywords_count': len(keywords),
+            'groups_count': len(groups)
+        })
+        
+    except Exception as e:
+        print(f"❌ Ошибка запуска автопоиска: {e}")
+        return jsonify({'error': f'Ошибка запуска: {str(e)}'}), 500
+
+@app.route('/stop_auto_search', methods=['POST'])
+def stop_auto_search():
+    """Остановка автопоиска"""
+    global auto_search_active, auto_search_stop_event
+    
+    try:
+        if not auto_search_active:
+            return jsonify({'error': 'Автопоиск не запущен'}), 400
+        
+        # Останавливаем мониторинг
+        auto_search_active = False
+        if auto_search_stop_event:
+            auto_search_stop_event.set()
+        
+        print("⏹️ Автопоиск остановлен")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Автопоиск остановлен'
+        })
+        
+    except Exception as e:
+        print(f"❌ Ошибка остановки автопоиска: {e}")
+        return jsonify({'error': f'Ошибка остановки: {str(e)}'}), 500
+
+@app.route('/get_auto_search_results', methods=['GET'])
+def get_auto_search_results():
+    """Получение новых результатов автопоиска"""
+    global auto_search_results, auto_search_active
+    
+    try:
+        # Получаем новые результаты и очищаем буфер
+        new_messages = auto_search_results.copy()
+        auto_search_results.clear()
+        
+        return jsonify({
+            'success': True,
+            'new_messages': new_messages,
+            'active': auto_search_active,
+            'total_new': len(new_messages)
+        })
+        
+    except Exception as e:
+        print(f"❌ Ошибка получения результатов автопоиска: {e}")
+        return jsonify({'error': f'Ошибка: {str(e)}'}), 500
+
+def run_auto_search_monitoring():
+    """Основная функция мониторинга в отдельном потоке"""
+    global auto_search_active, auto_search_keywords, auto_search_groups, auto_search_results, auto_search_last_check
+    
+    print("🔄 Запущен поток мониторинга автопоиска")
+    
+    try:
+        # Создаем новый event loop для потока
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # Получаем клиент
+        user_client = get_user_client('local_user')
+        if not user_client:
+            print("❌ Не удалось создать клиент для автопоиска")
+            auto_search_active = False
+            return
+        
+        # Запускаем асинхронный мониторинг
+        loop.run_until_complete(monitor_groups_for_new_messages(user_client))
+        
+    except Exception as e:
+        print(f"❌ Ошибка в потоке автопоиска: {e}")
+        auto_search_active = False
+    finally:
+        try:
+            loop.close()
+        except:
+            pass
+        print("🔚 Поток мониторинга автопоиска завершен")
+
+async def monitor_groups_for_new_messages(client):
+    """Асинхронный мониторинг групп на новые сообщения"""
+    global auto_search_active, auto_search_keywords, auto_search_groups, auto_search_results, auto_search_last_check
+    
+    try:
+        await client.start()
+        print("✅ Клиент автопоиска подключен")
+        
+        # Получаем список групп для мониторинга
+        monitored_chats = {}
+        async for dialog in client.get_dialogs():
+            chat = dialog.chat
+            if (chat.type.name in ["GROUP", "SUPERGROUP"] and 
+                str(chat.id) in auto_search_groups):
+                monitored_chats[str(chat.id)] = chat
+                print(f"📂 Добавлена группа для мониторинга: {chat.title}")
+        
+        print(f"👁️ Мониторим {len(monitored_chats)} групп")
+        
+        # ИНИЦИАЛИЗАЦИЯ: запоминаем текущие последние сообщения БЕЗ добавления в результаты
+        print("🔄 Инициализация: запоминаем текущие сообщения...")
+        for group_id, chat in monitored_chats.items():
+            try:
+                # Берем только самое последнее сообщение для инициализации
+                async for message in client.get_chat_history(chat.id, limit=1):
+                    auto_search_last_check[group_id] = message.id
+                    print(f"📌 {chat.title}: запомнили сообщение ID {message.id}")
+                    break
+            except Exception as e:
+                print(f"❌ Ошибка инициализации {chat.title}: {e}")
+                auto_search_last_check[group_id] = 0
+        
+        print("✅ Инициализация завершена. Теперь ищем только НОВЫЕ сообщения!")
+        
+        # Основной цикл мониторинга
+        while auto_search_active and not auto_search_stop_event.is_set():
+            try:
+                for group_id, chat in monitored_chats.items():
+                    if not auto_search_active:
+                        break
+                    
+                    # Получаем новые сообщения
+                    try:
+                        last_message_id = auto_search_last_check.get(group_id, 0)
+                        new_messages_found = 0
+                        latest_id = last_message_id
+                        
+                        # Проверяем последние 10 сообщений
+                        async for message in client.get_chat_history(chat.id, limit=10):
+                            # Обновляем последний ID (даже если сообщение не подходит)
+                            if message.id > latest_id:
+                                latest_id = message.id
+                            
+                            # Пропускаем уже проверенные сообщения
+                            if message.id <= last_message_id:
+                                continue
+                            
+                            if message.text:
+                                # Проверяем на ключевые слова
+                                message_text = message.text.lower()
+                                matched_words = [word for word in auto_search_keywords if word in message_text]
+                                
+                                if matched_words:
+                                    # Найдено совпадение!
+                                    new_message = {
+                                        'text': message.text,
+                                        'author': message.from_user.username if message.from_user and message.from_user.username else "Аноним",
+                                        'chat': chat.title,
+                                        'date': message.date.strftime("%d.%m.%Y %H:%M"),
+                                        'timestamp': message.date.timestamp() * 1000,
+                                        'matched_words': matched_words,
+                                        'message_id': message.id,
+                                        'chat_id': chat.id,
+                                        'chat_username': getattr(chat, 'username', None)
+                                    }
+                                    
+                                    auto_search_results.append(new_message)
+                                    new_messages_found += 1
+                                    
+                                    print(f"🎯 НОВОЕ СООБЩЕНИЕ: {chat.title}")
+                                    print(f"   Текст: {message.text[:50]}...")
+                                    print(f"   Слова: {matched_words}")
+                                    print(f"   Автор: @{new_message['author']}")
+                        
+                        # Обновляем последний проверенный ID
+                        auto_search_last_check[group_id] = max(latest_id, last_message_id)
+                        
+                        if new_messages_found > 0:
+                            print(f"📊 Найдено {new_messages_found} НОВЫХ сообщений в {chat.title}")
+                        
+                    except Exception as e:
+                        print(f"❌ Ошибка проверки группы {chat.title}: {e}")
+                        continue
+                
+                # Пауза между проверками (5 секунд)
+                await asyncio.sleep(5)
+                
+            except Exception as e:
+                print(f"❌ Ошибка в цикле мониторинга: {e}")
+                await asyncio.sleep(10)
+        
+        await client.stop()
+        print("📴 Клиент автопоиска отключен")
+        
+    except Exception as e:
+        print(f"❌ Критическая ошибка мониторинга: {e}")
+        auto_search_active = False
+
+@app.route('/get_auto_search_status', methods=['GET'])
+def get_auto_search_status():
+    """Получение текущего статуса автопоиска"""
+    global auto_search_active, auto_search_keywords, auto_search_groups
+    
+    return jsonify({
+        'success': True,
+        'active': auto_search_active,
+        'keywords': auto_search_keywords,
+        'groups_count': len(auto_search_groups),
+        'keywords_count': len(auto_search_keywords)
+    })
+
+# Добавь в конец файла перед if __name__ == '__main__':
+def cleanup_auto_search():
+    """Очистка ресурсов автопоиска при завершении"""
+    global auto_search_active, auto_search_stop_event
+    
+    if auto_search_active:
+        print("🧹 Завершаем автопоиск...")
+        auto_search_active = False
+        if auto_search_stop_event:
+            auto_search_stop_event.set()
+
+# Обработчик сигнала завершения
+import signal
+def signal_handler(sig, frame):
+    cleanup_auto_search()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
 
 if __name__ == '__main__':
     print("🚀 Запускаю Message Hunter...")
