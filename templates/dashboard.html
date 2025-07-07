@@ -757,44 +757,11 @@
     color: #721c24;
 }
 
-/* Скрываем контент до инициализации */
-.tab-content {
-    display: none;
-}
 
-.tab-content.active {
-    display: block;
-}
-
-/* Скрываем все вкладки при загрузке */
-body.loading .tab-content {
-    display: none !important;
-}
     </style>
 </head>
-<body class="loading">
-    <!-- Экран загрузки -->
-    <div id="loadingScreen" style="
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-        color: white;
-    ">
-        <div style="text-align: center;">
-            <div style="font-size: 64px; margin-bottom: 20px;">🔍</div>
-            <h1 style="font-size: 32px; margin-bottom: 10px;">Message Hunter</h1>
-            <p style="font-size: 18px; margin-bottom: 30px;">Загрузка системы...</p>
-            <div class="spinner" style="border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid white;"></div>
-        </div>
-    </div>
+<body>
+
 
     <div class="header">
         <div class="logo">
@@ -1367,46 +1334,84 @@ body.loading .tab-content {
         // Переменные для выбора аккаунтов в поиске
         // Переменная для отслеживания уведомлений
         let lastNotificationCount = 0;
+        let AUTO_SEARCH_INTERVAL = 15000;
 
         // Обновляем функцию addNewAutoResults:
-        function addNewAutoResults(newMessages) {
-            const messagesContainer = document.getElementById('autoMessages');
-            
-            // Если это первые результаты, очищаем заглушку
-            if (autoFoundMessages.length === 0) {
-                messagesContainer.innerHTML = '';
-            }
-            
-            // Добавляем новые сообщения в начало списка
-            newMessages.forEach(msg => {
-                autoFoundMessages.unshift(msg);
-                
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'message';
-                messageDiv.style.borderLeft = '4px solid #28a745';
-                messageDiv.style.animation = 'fadeIn 0.5s ease-in';
-                messageDiv.style.background = 'linear-gradient(90deg, #d4edda 0%, #ffffff 5%)';
-                
-                // ... существующий код создания messageDiv ...
-                
-                messagesContainer.insertBefore(messageDiv, messagesContainer.firstChild);
-            });
-            
-            // Ограничиваем количество отображаемых сообщений
-            while (messagesContainer.children.length > 100) {
-                messagesContainer.removeChild(messagesContainer.lastChild);
-            }
-            
-            // ПОКАЗЫВАЕМ УВЕДОМЛЕНИЕ О НОВЫХ НАХОДКАХ
-            if (newMessages.length > 0) {
-                showAutoSearchNotification(newMessages.length);
-                
-                // Воспроизводим звук уведомления (опционально)
-                playNotificationSound();
-            }
-            
-            console.log(`✅ Добавлено ${newMessages.length} новых результатов автопоиска`);
+
+// В templates/dashboard.html найди функцию addNewAutoResults и ЗАМЕНИ её полностью:
+
+function addNewAutoResults(newMessages) {
+    console.log(`🔥 Получено ${newMessages.length} новых сообщений для автопоиска`);
+    
+    const messagesContainer = document.getElementById('autoMessages');
+    
+    // Если это первые результаты, очищаем заглушку
+    if (autoFoundMessages.length === 0) {
+        messagesContainer.innerHTML = '';
+    }
+    
+    // Добавляем новые сообщения в начало массива
+        newMessages.forEach(msg => {
+        autoFoundMessages.unshift(msg);
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+        messageDiv.style.borderLeft = '4px solid #28a745';
+        messageDiv.style.animation = 'fadeIn 0.5s ease-in';
+        messageDiv.style.marginBottom = '15px';
+        
+        const messageDate = new Date(msg.timestamp);
+        const now = new Date();
+        const diffSeconds = Math.floor((now - messageDate) / 1000);
+        
+        let freshnessIndicator = '🔥 Только что';
+        if (diffSeconds > 60) {
+            const minutes = Math.floor(diffSeconds / 60);
+            freshnessIndicator = `⚡ ${minutes} мин назад`;
         }
+        
+        messageDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                <span style="color: #28a745; font-weight: 600; font-size: 14px;">
+                    ${freshnessIndicator}
+                </span>
+                <div style="text-align: right; font-size: 12px; color: #666;">
+                    <div>👤 ${msg.author}</div>
+                    <div>📂 ${msg.chat}</div>
+                </div>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+                ${msg.text}
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="matched-words">
+                    🎯 Найдено: ${msg.matched_words.map(word => `<span style="background: #fff3cd; padding: 2px 6px; border-radius: 8px; font-size: 12px; margin: 0 2px;">${word}</span>`).join('')}
+                </div>
+                <a href="${generateMessageLink(msg)}" target="_blank" class="btn-link">
+                    🔗 Открыть в Telegram
+                </a>
+            </div>
+        `;
+        
+        messagesContainer.insertBefore(messageDiv, messagesContainer.firstChild);
+        saveAutoSearchResults();
+    });
+    
+    // СОХРАНЯЕМ В localStorage ПОСЛЕ КАЖДОГО НОВОГО СООБЩЕНИЯ
+    try {
+        const saveData = {
+            messages: autoFoundMessages.slice(),
+            timestamp: Date.now(),
+            keywords: autoSearchKeywords.slice()
+        };
+        localStorage.setItem('autosearch_results', JSON.stringify(saveData));
+        console.log('💾 Автопоиск: сохранено', autoFoundMessages.length, 'результатов');
+    } catch (e) {
+        console.error('❌ Ошибка сохранения автопоиска:', e);
+    }
+}
 
         // Функция уведомления о новых находках
         function showAutoSearchNotification(count) {
@@ -1517,10 +1522,12 @@ body.loading .tab-content {
                 }
                 targetContent.classList.add('active');
                 
-                // Загружаем данные для автопоиска
+            setTimeout(() => {
                 loadAutoSearchGroups();
+                loadSavedAutoSearchResults(); 
                 updateAutoSearchAccountInfo();
                 checkAutoSearchStatus();
+            }, 1000);
                 
                 console.log(`✅ Активирована скрытая вкладка: autosearch`);
                 return;
@@ -2855,11 +2862,79 @@ body.loading .tab-content {
                 autoSearchTab.classList.add('active');
                 console.log('✅ Восстановлена скрытая вкладка автопоиска');
                 
-                // Загружаем данные для автопоиска
                 setTimeout(() => {
-                    loadAutoSearchGroups();
+                    console.log('🔄 ЗАПУСКАЕМ восстановление данных автопоиска...');
+                    // ДОБАВЬ ПРЯМОЙ ВЫЗОВ С ПРОВЕРКОЙ
+                    console.log('🎯 Вызываем loadSavedAutoSearchResults...');
+                    if (typeof loadSavedAutoSearchResults === 'function') {
+                        console.log('✅ Функция loadSavedAutoSearchResults найдена');
+                        loadSavedAutoSearchResults();
+                    } else {
+                        console.error('❌ Функция loadSavedAutoSearchResults НЕ НАЙДЕНА!');
+                        
+                        // ПРИНУДИТЕЛЬНОЕ ВОССТАНОВЛЕНИЕ ПРЯМО ЗДЕСЬ
+                        console.log('🚨 ПРИНУДИТЕЛЬНОЕ восстановление...');
+                        try {
+                            const saved = localStorage.getItem('test_autosearch');
+                            if (saved) {
+                                const data = JSON.parse(saved);
+                                console.log('📊 Найдены данные:', data);
+                                
+                                if (data.messages && data.messages.length > 0) {
+                                    console.log(`🎯 Восстанавливаем ${data.messages.length} сообщений`);
+                                    
+                                    // Устанавливаем переменную
+                                    if (typeof autoFoundMessages !== 'undefined') {
+                                        autoFoundMessages = data.messages.slice();
+                                        console.log('✅ autoFoundMessages установлена:', autoFoundMessages.length);
+                                        
+                                        // Показываем результаты через 1 секунду
+                                        setTimeout(() => {
+                                            const container = document.getElementById('autoMessages');
+                                            if (container) {
+                                                console.log('📺 Контейнер найден, отображаем...');
+                                                container.innerHTML = '';
+                                                
+                                                data.messages.forEach((msg, i) => {
+                                                    const div = document.createElement('div');
+                                                    div.style.cssText = 'border: 2px solid #28a745; padding: 15px; margin: 10px 0; border-radius: 10px; background: #f8fff8;';
+                                                    div.innerHTML = `
+                                                        <div style="font-weight: bold; color: #28a745; margin-bottom: 10px;">
+                                                            🎯 Восстановленный результат #${i + 1}
+                                                        </div>
+                                                        <div style="background: white; padding: 10px; border-radius: 5px;">
+                                                            ${msg.text}
+                                                        </div>
+                                                        <div style="font-size: 12px; color: #666; margin-top: 10px;">
+                                                            👤 ${msg.author} | 📂 ${msg.chat}
+                                                        </div>
+                                                    `;
+                                                    container.appendChild(div);
+                                                });
+                                                
+                                                console.log('✅ РЕЗУЛЬТАТЫ ОТОБРАЖЕНЫ!');
+                                            } else {
+                                                console.error('❌ Контейнер autoMessages не найден');
+                                            }
+                                        }, 1500);
+                                        
+                                    } else {
+                                        console.error('❌ Переменная autoFoundMessages не определена');
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.error('❌ Ошибка принудительного восстановления:', e);
+                        }
+                    }
+                    
                     updateAutoSearchAccountInfo();
                     checkAutoSearchStatus();
+             
+                    loadAutoSearchGroups();
+                    loadSavedAutoSearchResults(); // ЭТА СТРОКА ДОЛЖНА ВЫПОЛНИТЬСЯ
+                   
+               
                 }, 1000);
             } else {
                 console.error('❌ Вкладка autosearch-tab не найдена, переключаемся на search');
@@ -2883,11 +2958,7 @@ body.loading .tab-content {
             }
         }
             
-            // Убираем экран загрузки
-            setTimeout(() => {
-                document.getElementById('loadingScreen').style.display = 'none';
-                document.body.classList.remove('loading');
-            }, 1000);
+       
             
             // Остальная инициализация...
             fetch('/check_api_keys')
@@ -4237,35 +4308,96 @@ let autoSearchActive = false;
 let autoSearchInterval = null;
 let autoFoundMessages = [];
 
+// Найди где открывается вкладка автопоиска и добавь:
+
 function openAutoSearchTab() {
     console.log('⚡ Открываем вкладку автопоиска');
     
-    // ПРОВЕРЯЕМ ЧТО ВКЛАДКА СУЩЕСТВУЕТ
-    const autoSearchTab = document.getElementById('autosearch-tab');
-    if (!autoSearchTab) {
-        console.error('❌ Вкладка autosearch-tab не найдена в DOM');
-        showError('❌ Ошибка: вкладка автопоиска не найдена');
-        return;
+    // Сразу проверяем сохраненные данные
+    console.log('🔍 Проверяем сохраненные результаты...');
+    const saved = localStorage.getItem('test_autosearch');
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            console.log('🎯 ВОССТАНАВЛИВАЕМ:', data.total, 'результатов');
+            
+            autoFoundMessages = data.messages.slice();
+            
+            // Ждем пока загрузится интерфейс, потом показываем
+            setTimeout(() => {
+                const container = document.getElementById('autoMessages');
+                if (container && autoFoundMessages.length > 0) {
+                    container.innerHTML = '';
+                    console.log('📺 Отображаем восстановленные результаты...');
+                    
+                    autoFoundMessages.forEach(msg => {
+                        const div = document.createElement('div');
+                        div.style.border = '1px solid #28a745';
+                        div.style.padding = '10px';
+                        div.style.margin = '5px 0';
+                        div.innerHTML = `<strong>${msg.chat}</strong>: ${msg.text.substring(0, 100)}...`;
+                        container.appendChild(div);
+                    });
+                    
+                    console.log('✅ РЕЗУЛЬТАТЫ ВОССТАНОВЛЕНЫ И ПОКАЗАНЫ');
+                }
+            }, 2000);
+            
+        } catch (e) {
+            console.error('❌ Ошибка восстановления:', e);
+        }
     }
     
-    // ЯВНО СОХРАНЯЕМ В localStorage
+    // Остальной код...
     localStorage.setItem('activeTab', 'autosearch');
-    console.log('💾 Сохранили activeTab = autosearch в localStorage');
-    
-    // Переключаемся на вкладку
     switchTab('autosearch');
-    
-    console.log('✅ Вкладка автопоиска открыта');
 }
 
-// Загрузка групп для автопоиска
+// ===============================
+// ИСПРАВЛЕНИЕ ФУНКЦИИ АВТОПОИСКА ГРУПП
+// ===============================
+
+// В templates/dashboard.html найди функцию loadAutoSearchGroups и ЗАМЕНИ её на эту:
+
 function loadAutoSearchGroups() {
+    console.log('🔄 Загружаем группы для автопоиска...');
     const container = document.getElementById('autoSearchGroupsContainer');
     
-    if (allGroups.length === 0) {
-        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Сначала загрузите группы. <button onclick="switchTab(\'search\')" class="select-btn">Перейти к поиску</button></div>';
+    if (!container) {
+        console.error('❌ Контейнер autoSearchGroupsContainer не найден');
         return;
     }
+    
+    if (allGroups.length === 0) {
+        console.log('⚠️ Нет групп для отображения в автопоиске');
+        container.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: #666;">
+                Сначала загрузите группы. 
+                <button onclick="switchTab('search')" class="select-btn">Перейти к поиску</button>
+            </div>
+        `;
+        return;
+    }
+    
+    // ЗАГРУЖАЕМ СОХРАНЕННЫЕ ГРУППЫ ИЗ localStorage (БЕЗ РЕКУРСИИ!)
+    try {
+        const saved = localStorage.getItem('message_hunter_autosearch_groups');
+        if (saved) {
+            const data = JSON.parse(saved);
+            const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+            
+            if (data.timestamp > weekAgo && data.groups && Array.isArray(data.groups)) {
+                autoSearchGroups = data.groups.slice();
+                console.log(`✅ Восстановлены группы автопоиска: ${autoSearchGroups.length}`);
+            }
+        }
+    } catch (e) {
+        console.log('❌ Ошибка загрузки сохраненных групп автопоиска');
+        autoSearchGroups = [];
+    }
+    
+    console.log(`📋 Отображаем ${allGroups.length} групп для автопоиска`);
+    console.log(`✅ Выбрано групп: ${autoSearchGroups.length}`);
     
     container.innerHTML = allGroups.map(group => `
         <div class="group-item">
@@ -4273,26 +4405,119 @@ function loadAutoSearchGroups() {
                 class="group-checkbox" 
                 id="auto_group_${group.id}"
                 ${autoSearchGroups.includes(group.id) ? 'checked' : ''}
-                onchange="toggleAutoGroup('${group.id}')">
-            <div class="group-info">
+                onchange="toggleAutoSearchGroup('${group.id}')">
+            <label for="auto_group_${group.id}">
                 <div class="group-title">${group.title}</div>
-                <div class="group-type">🎯 Автомониторинг</div>
-            </div>
+                <div class="group-info">👥 ${group.members_count.toLocaleString()} участников</div>
+                <div class="group-status">${group.status}</div>
+            </label>
         </div>
     `).join('');
     
     updateAutoSelectedCount();
+    console.log('✅ Группы автопоиска отображены');
 }
 
-// Управление выбором групп
-function toggleAutoGroup(groupId) {
-    if (autoSearchGroups.includes(groupId)) {
-        autoSearchGroups = autoSearchGroups.filter(id => id !== groupId);
-    } else {
-        autoSearchGroups.push(groupId);
+// ДОБАВЬ эту функцию для загрузки сохраненных групп:
+function loadSavedAutoSearchGroups() {
+    try {
+        const saved = localStorage.getItem('message_hunter_autosearch_groups');
+        if (!saved) {
+            console.log('📭 Нет сохраненных групп автопоиска');
+            return;
+        }
+        
+        const data = JSON.parse(saved);
+        const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+        
+        if (data.timestamp > weekAgo && data.groups && Array.isArray(data.groups)) {
+            autoSearchGroups = data.groups.slice();
+            console.log(`✅ Восстановлены группы автопоиска: ${autoSearchGroups.length}`);
+        } else {
+            console.log('⏰ Сохраненные группы автопоиска устарели');
+            autoSearchGroups = [];
+        }
+    } catch (e) {
+        console.error('❌ Ошибка загрузки групп автопоиска:', e);
+        autoSearchGroups = [];
     }
-    updateAutoSelectedCount();
 }
+
+
+
+// ДОБАВЬ функции для кнопок "Выбрать все" и "Убрать все":
+function selectAllAutoGroups() {
+    autoSearchGroups = allGroups.map(g => g.id);
+    
+    // Обновляем чекбоксы
+    document.querySelectorAll('[id^="auto_group_"]').forEach(checkbox => {
+        checkbox.checked = true;
+    });
+    
+    saveAutoSearchGroups(); // ДОБАВЬ ЭТУ СТРОКУ
+    updateAutoSelectedCount();
+    console.log('✅ Выбраны все группы для автопоиска');
+}
+
+function deselectAllAutoGroups() {
+    autoSearchGroups = [];
+    
+    // Обновляем чекбоксы
+    document.querySelectorAll('[id^="auto_group_"]').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    
+    saveAutoSearchGroups(); // ДОБАВЬ ЭТУ СТРОКУ
+    updateAutoSelectedCount();
+    console.log('❌ Убраны все группы автопоиска');
+}
+
+
+function updateAutoSelectedCount() {
+    const countEl = document.getElementById('autoSelectedCount');
+    if (countEl) {
+        countEl.textContent = `Выбрано: ${autoSearchGroups.length} из ${allGroups.length} групп`;
+    }
+}
+
+// ДОБАВЬ функцию обновления групп автопоиска:
+function refreshAutoSearchGroups() {
+    console.log('🔄 Обновляем группы автопоиска...');
+    
+    // Показываем индикатор загрузки
+    const container = document.getElementById('autoSearchGroupsContainer');
+    if (container) {
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">🔄 Обновление групп...</div>';
+    }
+    
+    // ПРОСТО ПЕРЕРИСОВЫВАЕМ БЕЗ ВЫЗОВА loadAutoSearchGroups
+    setTimeout(() => {
+        if (allGroups.length > 0) {
+            // Напрямую обновляем HTML без рекурсии
+            container.innerHTML = allGroups.map(group => `
+                <div class="group-item">
+                    <input type="checkbox" 
+                        class="group-checkbox" 
+                        id="auto_group_${group.id}"
+                        ${autoSearchGroups.includes(group.id) ? 'checked' : ''}
+                        onchange="toggleAutoSearchGroup('${group.id}')">
+                    <label for="auto_group_${group.id}">
+                        <div class="group-title">${group.title}</div>
+                        <div class="group-info">👥 ${group.members_count.toLocaleString()} участников</div>
+                        <div class="group-status">${group.status}</div>
+                    </label>
+                </div>
+            `).join('');
+            
+            updateAutoSelectedCount();
+            showError('✅ Группы автопоиска обновлены');
+        } else {
+            container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Группы не загружены</div>';
+        }
+    }, 500);
+}
+
+
 
 function selectAllAutoGroups() {
     autoSearchGroups = allGroups.map(g => g.id);
@@ -4358,14 +4583,14 @@ function updateAutoKeywordsDisplay() {
     }
 }
 
-// Обновление информации об аккаунте
+// 6. ДОБАВЬ функцию обновления информации об аккаунте:
 function updateAutoSearchAccountInfo() {
     fetch('/get_account_info')
     .then(response => response.json())
     .then(data => {
-        const accountInfoEl = document.getElementById('autoSearchAccountInfo');
-        if (accountInfoEl && data.success) {
-            accountInfoEl.textContent = `${data.account_name} | 📱 ${data.phone || 'Локальный'}`;
+        const infoEl = document.getElementById('autoSearchAccountInfo');
+        if (infoEl && data.success) {
+            infoEl.textContent = `${data.account_name} | 📱 ${data.phone}`;
         }
     })
     .catch(error => {
@@ -4454,7 +4679,8 @@ function stopAutoSearch() {
     });
 }
 
-// Обновление интерфейса автопоиска
+// В templates/dashboard.html обнови интерфейс:
+
 function updateAutoSearchUI() {
     const startBtn = document.getElementById('startAutoSearchBtn');
     const stopBtn = document.getElementById('stopAutoSearchBtn');
@@ -4462,31 +4688,29 @@ function updateAutoSearchUI() {
     const resultsDiv = document.getElementById('autoSearchResults');
     
     if (autoSearchActive) {
-        // Активный режим
         startBtn.style.display = 'none';
         stopBtn.style.display = 'block';
         
         statusInfo.innerHTML = `
-            <div style="font-weight: 600; color: #28a745;">📊 Статус: ⚡ Активен</div>
+            <div style="font-weight: 600; color: #28a745;">📊 Статус: ⚡ Мониторинг активен</div>
             <div style="font-size: 14px; color: #28a745; margin-top: 5px;">
-                Мониторим ${autoSearchGroups.length} групп по ${autoSearchKeywords.length} ключевым словам
+                👁️ Отслеживаем ${autoSearchGroups.length} групп по ${autoSearchKeywords.length} словам<br>
+                🔄 Глубокая проверка каждые 30 сек | 📊 Ловим ВСЕ новые сообщения (до 100 за раз)
             </div>
         `;
         statusInfo.style.background = '#d4edda';
         statusInfo.style.borderLeft = '4px solid #28a745';
         
-        // Показываем результаты
         resultsDiv.style.display = 'block';
         
     } else {
-        // Неактивный режим
         startBtn.style.display = 'block';
         stopBtn.style.display = 'none';
         
         statusInfo.innerHTML = `
-            <div style="font-weight: 600; color: #495057;">📊 Статус: Остановлен</div>
+            <div style="font-weight: 600; color: #495057;">📊 Статус: ⏹️ Остановлен</div>
             <div style="font-size: 14px; color: #6c757d; margin-top: 5px;">
-                Настройте параметры и запустите мониторинг
+                Настройте группы и ключевые слова, затем запустите мониторинг
             </div>
         `;
         statusInfo.style.background = '#e9ecef';
@@ -4494,20 +4718,21 @@ function updateAutoSearchUI() {
     }
 }
 
-// Опрос новых результатов
+// В templates/dashboard.html измени интервал проверки результатов:
+
 function startAutoSearchPolling() {
     if (autoSearchInterval) {
         clearInterval(autoSearchInterval);
     }
     
-    // Проверяем новые результаты каждые 3 секунды
+    // Проверяем результаты каждые 20 секунд (реже чем сервер проверяет)
     autoSearchInterval = setInterval(() => {
         if (autoSearchActive) {
             fetchAutoSearchResults();
         }
-    }, 3000);
+    }, 20000); // 20 секунд
     
-    console.log('🔄 Запущен опрос результатов автопоиска');
+    console.log('🔄 Запущен опрос результатов автопоиска (каждые 20 сек)');
 }
 
 function stopAutoSearchPolling() {
@@ -4543,7 +4768,12 @@ function fetchAutoSearchResults() {
 }
 
 // Добавление новых результатов
+// Добавь в templates/dashboard.html простую проверку:
+
+// Замени функцию addNewAutoResults на эту с подробными логами:
 function addNewAutoResults(newMessages) {
+    console.log('🔥 НАЧАЛО addNewAutoResults:', newMessages.length, 'новых сообщений');
+    
     const messagesContainer = document.getElementById('autoMessages');
     
     // Если это первые результаты, очищаем заглушку
@@ -4551,87 +4781,57 @@ function addNewAutoResults(newMessages) {
         messagesContainer.innerHTML = '';
     }
     
-    // Добавляем новые сообщения в начало списка
+    // Добавляем новые сообщения
     newMessages.forEach(msg => {
-        autoFoundMessages.unshift(msg); // Добавляем в начало массива
-        
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'message';
-        messageDiv.style.borderLeft = '4px solid #28a745';
-        messageDiv.style.animation = 'fadeIn 0.5s ease-in';
-        
-        // Определяем свежесть
-        const messageDate = new Date(msg.timestamp);
-        const now = new Date();
-        const diffSeconds = Math.floor((now - messageDate) / 1000);
-        
-        let freshnessText = '';
-        if (diffSeconds < 60) {
-            freshnessText = '🔥 Только что';
-        } else if (diffSeconds < 3600) {
-            freshnessText = `⚡ ${Math.floor(diffSeconds / 60)} мин назад`;
-        } else {
-            freshnessText = `📅 ${Math.floor(diffSeconds / 3600)} ч назад`;
-        }
-        
-        messageDiv.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <div style="background: #28a745; color: white; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
-                    ${freshnessText}
-                </div>
-                <div style="font-size: 12px; color: #999;">
-                    ⚡ Автопоиск
-                </div>
-            </div>
-            <div class="message-text">${msg.text}</div>
-            <div class="matched-words">Найденные слова: ${msg.matched_words.join(', ')}</div>
-            <div class="message-meta">
-                <div class="message-author">
-                    <span>👤</span>
-                    <span>@${msg.author}</span>
-                </div>
-                <div class="message-chat">
-                    <span>💬</span>
-                    <span>${msg.chat}</span>
-                </div>
-                <div class="message-date">
-                    <span>📅</span>
-                    <span>${msg.date}</span>
-                </div>
-                ${msg.chat_id && msg.message_id ? `
-                    <div class="message-link">
-                        <span>🔗</span>
-                        <a href="${generateMessageLink(msg)}" target="_blank" style="color: #28a745; text-decoration: none;">
-                            Перейти к сообщению
-                        </a>
-                    </div>
-                ` : ''}
-            </div>
-        `;
-        
-        // Вставляем в начало контейнера
-        messagesContainer.insertBefore(messageDiv, messagesContainer.firstChild);
+        autoFoundMessages.unshift(msg);
+        console.log('➕ Добавлено сообщение:', msg.text.substring(0, 50) + '...');
     });
     
-    // Ограничиваем количество отображаемых сообщений (последние 100)
-    while (messagesContainer.children.length > 100) {
-        messagesContainer.removeChild(messagesContainer.lastChild);
+    console.log('📊 Всего результатов в массиве:', autoFoundMessages.length);
+    
+    // ТЕСТИРУЕМ СОХРАНЕНИЕ
+    try {
+        const saveData = {
+            messages: autoFoundMessages.slice(),
+            timestamp: Date.now(),
+            total: autoFoundMessages.length
+        };
+        
+        localStorage.setItem('test_autosearch', JSON.stringify(saveData));
+        console.log('💾 СОХРАНЕНО в localStorage:', autoFoundMessages.length, 'результатов');
+        
+        // СРАЗУ ПРОВЕРЯЕМ ЧТО СОХРАНИЛОСЬ
+        const check = localStorage.getItem('test_autosearch');
+        if (check) {
+            const checkData = JSON.parse(check);
+            console.log('✅ ПРОВЕРКА: в localStorage есть', checkData.total, 'результатов');
+        } else {
+            console.error('❌ ОШИБКА: ничего не сохранилось!');
+        }
+        
+    } catch (e) {
+        console.error('❌ ОШИБКА СОХРАНЕНИЯ:', e);
     }
     
-    console.log(`✅ Добавлено ${newMessages.length} новых результатов автопоиска`);
+    // Отображаем сообщения (упрощенно)
+    newMessages.forEach(msg => {
+        const messageDiv = document.createElement('div');
+        messageDiv.style.border = '1px solid #ccc';
+        messageDiv.style.padding = '10px';
+        messageDiv.style.margin = '5px 0';
+        messageDiv.innerHTML = `<strong>${msg.chat}</strong>: ${msg.text.substring(0, 100)}...`;
+        messagesContainer.insertBefore(messageDiv, messagesContainer.firstChild);
+    });
 }
 
-// Обновление счетчика результатов
-function updateAutoResultsCount() {
-    const countEl = document.getElementById('autoResultsCount');
-    if (countEl) {
-        countEl.textContent = `Найдено сообщений: ${autoFoundMessages.length} | Мониторинг активен`;
-    }
-}
+
 
 // Очистка результатов
 function clearAutoResults() {
-    if (!confirm('Очистить все результаты автопоиска?')) return;
+    if (autoFoundMessages.length === 0) {
+        showError('❌ Нет результатов для очистки');
+        return;
+    }
     
     autoFoundMessages = [];
     const messagesContainer = document.getElementById('autoMessages');
@@ -4642,6 +4842,9 @@ function clearAutoResults() {
             <p>Новые найденные сообщения будут появляться здесь</p>
         </div>
     `;
+    
+    // УДАЛЯЕМ ИЗ СОХРАНЕНИЯ
+    localStorage.removeItem('message_hunter_autosearch_results');
     
     updateAutoResultsCount();
     showError('✅ Результаты автопоиска очищены');
@@ -4658,7 +4861,8 @@ style.textContent = `
 document.head.appendChild(style);
 
 
-// Обновляем функцию updateAutoSearchUI
+// Обнови интерфейс:
+
 function updateAutoSearchUI() {
     const startBtn = document.getElementById('startAutoSearchBtn');
     const stopBtn = document.getElementById('stopAutoSearchBtn');
@@ -4666,7 +4870,6 @@ function updateAutoSearchUI() {
     const resultsDiv = document.getElementById('autoSearchResults');
     
     if (autoSearchActive) {
-        // Активный режим
         startBtn.style.display = 'none';
         stopBtn.style.display = 'block';
         
@@ -4674,17 +4877,15 @@ function updateAutoSearchUI() {
             <div style="font-weight: 600; color: #28a745;">📊 Статус: ⚡ Мониторинг активен</div>
             <div style="font-size: 14px; color: #28a745; margin-top: 5px;">
                 👁️ Отслеживаем ${autoSearchGroups.length} групп по ${autoSearchKeywords.length} словам<br>
-                🔄 Проверка каждые 5 секунд | 📊 Показываем только новые сообщения
+                🔄 Глубокая проверка каждые 45 сек (до 50 сообщений) | 📊 Ничего не пропустим!
             </div>
         `;
         statusInfo.style.background = '#d4edda';
         statusInfo.style.borderLeft = '4px solid #28a745';
         
-        // Показываем результаты
         resultsDiv.style.display = 'block';
         
     } else {
-        // Неактивный режим
         startBtn.style.display = 'block';
         stopBtn.style.display = 'none';
         
@@ -4697,6 +4898,878 @@ function updateAutoSearchUI() {
         statusInfo.style.background = '#e9ecef';
         statusInfo.style.borderLeft = 'none';
     }
+}
+
+// ===============================
+// ИСПРАВЛЕНИЯ ДЛЯ СОХРАНЕНИЯ ГРУПП
+// ===============================
+
+// 1. Добавь эти функции в templates/dashboard.html после строки 2000:
+
+// Сохранение выбранных групп в localStorage
+function saveSelectedGroups() {
+    try {
+        const selected = {
+            groups: selectedGroups.slice(), // копируем массив
+            timestamp: Date.now()
+        };
+        localStorage.setItem('message_hunter_selected_groups', JSON.stringify(selected));
+        console.log('💾 Выбранные группы сохранены:', selectedGroups.length);
+    } catch (e) {
+        console.log('❌ Не удалось сохранить выбранные группы');
+    }
+}
+
+// Восстановление выбранных групп из localStorage
+function loadSelectedGroups() {
+    try {
+        const saved = localStorage.getItem('message_hunter_selected_groups');
+        if (!saved) return;
+        
+        const data = JSON.parse(saved);
+        // Проверяем что сохранение не старше 7 дней
+        const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+        
+        if (data.timestamp > weekAgo && data.groups && Array.isArray(data.groups)) {
+            selectedGroups = data.groups.slice();
+            console.log('✅ Восстановлены выбранные группы:', selectedGroups.length);
+            updateGroupsDisplay(); // обновляем отображение
+        }
+    } catch (e) {
+        console.log('❌ Ошибка загрузки выбранных групп');
+    }
+}
+
+// 1. Функция сохранения групп автопоиска
+function saveAutoSearchGroups() {
+    try {
+        const selected = {
+            groups: autoSearchGroups.slice(),
+            timestamp: Date.now()
+        };
+        localStorage.setItem('message_hunter_autosearch_groups', JSON.stringify(selected));
+        console.log('💾 Группы автопоиска сохранены:', autoSearchGroups.length);
+    } catch (e) {
+        console.log('❌ Не удалось сохранить группы автопоиска');
+    }
+}
+
+// 3. ИСПРАВЬ функцию loadAutoSearchGroups:
+function loadAutoSearchGroups() {
+    console.log('🔄 Загружаем группы для автопоиска...');
+    const container = document.getElementById('autoSearchGroupsContainer');
+    
+    if (!container) {
+        console.error('❌ Контейнер autoSearchGroupsContainer не найден');
+        return;
+    }
+    
+    if (allGroups.length === 0) {
+        console.log('⚠️ Нет групп для отображения в автопоиске');
+        container.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: #666;">
+                Сначала загрузите группы. 
+                <button onclick="switchTab('search')" class="select-btn">Перейти к поиску</button>
+            </div>
+        `;
+        return;
+    }
+    
+    // ЗАГРУЖАЕМ СОХРАНЕННЫЕ ГРУППЫ
+    loadSavedAutoSearchGroups();
+    
+    console.log(`📋 Отображаем ${allGroups.length} групп для автопоиска`);
+    console.log(`✅ Выбранных групп: ${autoSearchGroups.length}`);
+    
+    container.innerHTML = allGroups.map(group => `
+        <div class="group-item">
+            <input type="checkbox" 
+                class="group-checkbox" 
+                id="auto_group_${group.id}"
+                ${autoSearchGroups.includes(group.id) ? 'checked' : ''}
+                onchange="toggleAutoSearchGroup('${group.id}')">
+            <label for="auto_group_${group.id}">
+                <div class="group-title">${group.title}</div>
+                <div class="group-info">👥 ${group.members_count.toLocaleString()} участников</div>
+                <div class="group-status">${group.status}</div>
+            </label>
+        </div>
+    `).join('');
+    
+    updateAutoSelectedCount();
+    console.log('✅ Группы автопоиска отображены с восстановленным выбором');
+}
+
+// Обновление отображения обычных групп
+function updateGroupsDisplay() {
+    // Обновляем чекбоксы групп
+    document.querySelectorAll('.group-checkbox').forEach(checkbox => {
+        const groupId = checkbox.id.replace('group_', '');
+        checkbox.checked = selectedGroups.includes(groupId);
+    });
+    
+    // Обновляем кнопки выбора
+    updateSelectAllButton();
+}
+
+// Обновление отображения групп автопоиска  
+function updateAutoSearchGroupsDisplay() {
+    // Обновляем чекбоксы автопоиска
+    document.querySelectorAll('[id^="auto_group_"]').forEach(checkbox => {
+        const groupId = checkbox.id.replace('auto_group_', '');
+        checkbox.checked = autoSearchGroups.includes(groupId);
+    });
+}
+
+// 2. ИЗМЕНИТЬ существующую функцию displayGroups (найди и замени):
+
+
+
+function displayGroups() {
+    const container = document.getElementById('groupsContainer');
+    
+    if (allGroups.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Группы не найдены</div>';
+        return;
+    }
+    
+    // ЗАГРУЖАЕМ СОХРАНЕННЫЕ ГРУППЫ
+    loadSelectedGroups();
+    
+    container.innerHTML = allGroups.map(group => `
+        <div class="group-item">
+            <input type="checkbox" 
+                   class="group-checkbox" 
+                   id="group_${group.id}"
+                   ${selectedGroups.includes(group.id) ? 'checked' : ''}
+                   onchange="toggleGroup('${group.id}')">
+            <label for="group_${group.id}">
+                <div class="group-title">${group.title}</div>
+                <div class="group-info">👥 ${group.members_count.toLocaleString()} участников</div>
+                <div class="group-status">${group.status}</div>
+            </label>
+        </div>
+    `).join('');
+    
+    console.log(`✅ Отображено ${allGroups.length} групп, выбрано ${selectedGroups.length}`);
+}
+
+// 2. В функции toggleGroup добавь сохранение:
+function toggleGroup(groupId) {
+    if (selectedGroups.includes(groupId)) {
+        selectedGroups = selectedGroups.filter(id => id !== groupId);
+    } else {
+        selectedGroups.push(groupId);
+    }
+    
+    // СОХРАНЯЕМ ПОСЛЕ КАЖДОГО ИЗМЕНЕНИЯ
+    saveSelectedGroups();
+    
+    console.log(`📊 Выбрано групп: ${selectedGroups.length}`);
+}
+
+
+// 3. ИЗМЕНИТЬ функцию toggleGroup (найди и замени):
+
+function toggleGroup(groupId) {
+    if (selectedGroups.includes(groupId)) {
+        selectedGroups = selectedGroups.filter(id => id !== groupId);
+        console.log(`➖ Убрал группу ${groupId}`);
+    } else {
+        selectedGroups.push(groupId);
+        console.log(`➕ Добавил группу ${groupId}`);
+    }
+    
+    // СОХРАНЯЕМ ПОСЛЕ КАЖДОГО ИЗМЕНЕНИЯ
+    saveSelectedGroups();
+    
+    updateSelectAllButton();
+    console.log(`📊 Выбрано групп: ${selectedGroups.length}`);
+}
+
+// 4. ИЗМЕНИТЬ функцию loadAutoSearchGroups (найди и замени):
+
+function loadAutoSearchGroups() {
+    const container = document.getElementById('autoSearchGroupsContainer');
+    
+    if (allGroups.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Сначала загрузите группы</div>';
+        return;
+    }
+    
+    // ЗАГРУЖАЕМ СОХРАНЕННЫЕ ГРУППЫ АВТОПОИСКА
+    loadSavedAutoSearchGroups();
+    
+    container.innerHTML = allGroups.map(group => `
+        <div class="group-item">
+            <input type="checkbox" 
+                class="group-checkbox" 
+                id="auto_group_${group.id}"
+                ${autoSearchGroups.includes(group.id) ? 'checked' : ''}
+                onchange="toggleAutoSearchGroup('${group.id}')">
+            <label for="auto_group_${group.id}">
+                <div class="group-title">${group.title}</div>
+                <div class="group-info">👥 ${group.members_count.toLocaleString()} участников</div>
+                <div class="group-status">${group.status}</div>
+            </label>
+        </div>
+    `).join('');
+    
+    updateAutoSelectedCount();
+}
+
+
+// 5. ДОБАВИТЬ функцию для переключения групп автопоиска:
+
+
+function toggleAutoSearchGroup(groupId) {
+    if (autoSearchGroups.includes(groupId)) {
+        autoSearchGroups = autoSearchGroups.filter(id => id !== groupId);
+    } else {
+        autoSearchGroups.push(groupId);
+    }
+    
+    // СОХРАНЯЕМ ПОСЛЕ КАЖДОГО ИЗМЕНЕНИЯ
+    saveAutoSearchGroups();
+    updateAutoSelectedCount();
+}
+
+function updateSelectAllButton() {
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    if (!selectAllBtn) return;
+    
+    const totalGroups = allGroups.length;
+    const selectedCount = selectedGroups.length;
+    
+    if (selectedCount === 0) {
+        selectAllBtn.textContent = '✅ Выбрать все';
+        selectAllBtn.onclick = selectAllGroups;
+    } else if (selectedCount === totalGroups) {
+        selectAllBtn.textContent = '❌ Убрать все';
+        selectAllBtn.onclick = deselectAllGroups;
+    } else {
+        selectAllBtn.textContent = '✅ Выбрать все';
+        selectAllBtn.onclick = selectAllGroups;
+    }
+}
+
+// 2. ДОБАВЬ функции для выбора/отмены всех групп:
+
+function selectAllGroups() {
+    selectedGroups = allGroups.map(g => g.id);
+    
+    // Обновляем чекбоксы
+    document.querySelectorAll('.group-checkbox').forEach(checkbox => {
+        if (checkbox.id.startsWith('group_')) {
+            checkbox.checked = true;
+        }
+    });
+    
+    saveSelectedGroups();
+    updateSelectAllButton();
+    console.log('✅ Выбраны все группы');
+}
+
+function deselectAllGroups() {
+    selectedGroups = [];
+    
+    // Обновляем чекбоксы
+    document.querySelectorAll('.group-checkbox').forEach(checkbox => {
+        if (checkbox.id.startsWith('group_')) {
+            checkbox.checked = false;
+        }
+    });
+    
+    saveSelectedGroups();
+    updateSelectAllButton();
+    console.log('❌ Убраны все группы');
+}
+
+
+// 1. Функция сохранения результатов автопоиска
+function saveAutoSearchResults() {
+    try {
+        const resultsData = {
+            messages: autoFoundMessages.slice(),
+            timestamp: Date.now(),
+            keywords: autoSearchKeywords.slice(),
+            groups_count: autoSearchGroups.length
+        };
+        localStorage.setItem('message_hunter_autosearch_results', JSON.stringify(resultsData));
+        console.log('💾 Результаты автопоиска сохранены:', autoFoundMessages.length);
+    } catch (e) {
+        console.log('❌ Не удалось сохранить результаты автопоиска');
+    }
+}
+
+// 2. Функция загрузки сохраненных результатов
+// В templates/dashboard.html исправь функцию loadSavedAutoSearchResults:
+
+// ЗАМЕНИ функцию loadSavedAutoSearchResults на эту:
+
+function loadSavedAutoSearchResults() {
+    console.log('🔍 НАЧИНАЕМ восстановление результатов автопоиска...');
+    
+    try {
+        // ОТЛАДКА
+        debugLocalStorage();
+        
+        let saved = localStorage.getItem('test_autosearch');
+        let keyUsed = 'test_autosearch';
+        
+        if (!saved) {
+            saved = localStorage.getItem('message_hunter_autosearch_results');
+            keyUsed = 'message_hunter_autosearch_results';
+        }
+        
+        if (!saved) {
+            console.log('📭 НЕТ сохраненных результатов автопоиска');
+            return;
+        }
+        
+        console.log(`✅ НАЙДЕНЫ данные в ключе: ${keyUsed}`);
+        console.log('📝 Сырые данные:', saved.substring(0, 200) + '...');
+        
+        const data = JSON.parse(saved);
+        console.log('📊 Распарсенные данные:', data);
+        
+        let messages = [];
+        
+        // ПРОВЕРЯЕМ ВСЕ ВОЗМОЖНЫЕ ФОРМАТЫ
+        if (data.messages && Array.isArray(data.messages)) {
+            messages = data.messages;
+            console.log('✅ Формат: объект с полем messages');
+        } else if (Array.isArray(data)) {
+            messages = data;
+            console.log('✅ Формат: прямой массив');
+        } else {
+            console.log('❌ Неизвестный формат данных');
+            return;
+        }
+        
+        console.log(`📊 Найдено сообщений: ${messages.length}`);
+        
+        if (messages.length > 0) {
+            autoFoundMessages = messages.slice();
+            console.log(`✅ УСТАНОВЛЕНО autoFoundMessages: ${autoFoundMessages.length}`);
+            
+            // ПРИНУДИТЕЛЬНО ПОКАЗЫВАЕМ РЕЗУЛЬТАТЫ
+            setTimeout(() => {
+                console.log('🎯 ПРИНУДИТЕЛЬНОЕ отображение через 500мс...');
+                forceDisplayAutoResults();
+            }, 500);
+            
+        } else {
+            console.log('📭 Массив сообщений пустой');
+        }
+        
+    } catch (e) {
+        console.error('❌ ОШИБКА восстановления:', e);
+    }
+}
+
+// 3. Функция отображения сохраненных результатов
+// Также исправь функцию displaySavedAutoResults:
+
+function displaySavedAutoResults() {
+    console.log('📺 Начинаем отображение сохраненных результатов...');
+    const messagesContainer = document.getElementById('autoMessages');
+    
+    if (!messagesContainer) {
+        console.error('❌ Контейнер autoMessages не найден');
+        return;
+    }
+    
+    if (autoFoundMessages.length === 0) {
+        console.log('📭 Нет результатов для отображения');
+        messagesContainer.innerHTML = `
+            <div style="text-align: center; padding: 30px; color: #666;">
+                <div style="font-size: 48px; margin-bottom: 15px;">🔍</div>
+                <h3>Ожидаем новые сообщения...</h3>
+                <p>Результаты будут появляться здесь в реальном времени</p>
+            </div>
+        `;
+        return;
+    }
+    
+    console.log(`📋 Отображаем ${autoFoundMessages.length} сохраненных результатов`);
+    
+    messagesContainer.innerHTML = '';
+    
+    autoFoundMessages.forEach((msg, index) => {
+        console.log(`📝 Обрабатываем сообщение ${index + 1}:`, msg.text.substring(0, 50) + '...');
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+        messageDiv.style.borderLeft = '4px solid #28a745';
+        messageDiv.style.marginBottom = '15px';
+        messageDiv.style.background = '#fff';
+        messageDiv.style.padding = '15px';
+        messageDiv.style.borderRadius = '10px';
+        messageDiv.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)';
+        
+        // БЕЗОПАСНАЯ ОБРАБОТКА ДАТЫ
+        let messageDate;
+        try {
+            if (msg.timestamp) {
+                messageDate = new Date(msg.timestamp);
+            } else if (msg.date) {
+                messageDate = new Date(msg.date);
+            } else {
+                messageDate = new Date();
+            }
+        } catch (e) {
+            messageDate = new Date();
+        }
+        
+        messageDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <span style="color: #28a745; font-weight: 600; font-size: 14px;">
+                    📅 ${messageDate.toLocaleDateString()} ${messageDate.toLocaleTimeString()}
+                </span>
+                <div style="text-align: right; font-size: 12px; color: #666;">
+                    <div>👤 ${msg.author || 'Аноним'}</div>
+                    <div>📂 ${msg.chat || 'Неизвестно'}</div>
+                </div>
+            </div>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 3px solid #28a745;">
+                ${msg.text || 'Нет текста'}
+            </div>
+            <div class="matched-words">
+                🎯 Найдено: ${(msg.matched_words || []).map(word => `<span style="background: #fff3cd; padding: 2px 6px; border-radius: 8px; font-size: 12px; margin: 0 2px;">${word}</span>`).join(' ')}
+            </div>
+        `;
+        
+        messagesContainer.appendChild(messageDiv);
+    });
+    
+    console.log('✅ Все результаты отображены');
+}
+
+// 4. Функция добавления сообщения в отображение
+function addAutoMessageToDisplay(msg, index) {
+    const messagesContainer = document.getElementById('autoMessages');
+    
+    const messageDate = new Date(msg.timestamp);
+    const now = new Date();
+    const diffMs = now - messageDate;
+    const hoursAgo = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutesAgo = Math.floor(diffMs / (1000 * 60));
+    
+    let freshnessIndicator = '';
+    let freshnessColor = '#28a745';
+    
+    if (minutesAgo < 5) {
+        freshnessIndicator = '🔥 Только что';
+        freshnessColor = '#dc3545';
+    } else if (minutesAgo < 30) {
+        freshnessIndicator = `⚡ ${minutesAgo} мин назад`;
+        freshnessColor = '#fd7e14';
+    } else if (hoursAgo < 2) {
+        freshnessIndicator = `🕐 ${hoursAgo}ч ${minutesAgo % 60}м назад`;
+        freshnessColor = '#28a745';
+    } else {
+        freshnessIndicator = `📅 ${messageDate.toLocaleDateString()} ${messageDate.toLocaleTimeString()}`;
+        freshnessColor = '#6c757d';
+    }
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message';
+    messageDiv.style.borderLeft = '4px solid #28a745';
+    messageDiv.style.marginBottom = '15px';
+    
+    messageDiv.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="background: #28a745; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: 600;">
+                    #${index}
+                </span>
+                <span style="color: ${freshnessColor}; font-weight: 600; font-size: 14px;">
+                    ${freshnessIndicator}
+                </span>
+            </div>
+            <div style="text-align: right; font-size: 12px; color: #666;">
+                <div>👤 ${msg.author}</div>
+                <div>📂 ${msg.chat}</div>
+            </div>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+            ${msg.text}
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="matched-words">
+                🎯 Найдено: ${msg.matched_words.map(word => `<span style="background: #fff3cd; padding: 2px 6px; border-radius: 8px; font-size: 12px; margin: 0 2px;">${word}</span>`).join('')}
+            </div>
+            <a href="${generateMessageLink(msg)}" target="_blank" class="btn-link">
+                🔗 Открыть в Telegram
+            </a>
+        </div>
+    `;
+    
+    // Добавляем в начало списка (новые сверху)
+    messagesContainer.insertBefore(messageDiv, messagesContainer.firstChild);
+}
+
+// Добавь эту функцию в templates/dashboard.html:
+
+function restoreAutoSearchResults() {
+    console.log('🔄 Восстанавливаем результаты автопоиска...');
+    
+    try {
+        const saved = localStorage.getItem('autosearch_results');
+        if (!saved) {
+            console.log('📭 Нет сохраненных результатов автопоиска');
+            return;
+        }
+        
+        const data = JSON.parse(saved);
+        const dayAgo = Date.now() - (24 * 60 * 60 * 1000);
+        
+        if (data.timestamp > dayAgo && data.messages) {
+            autoFoundMessages = data.messages.slice();
+            console.log(`✅ Восстановлено ${autoFoundMessages.length} результатов автопоиска`);
+            
+            // Отображаем восстановленные результаты
+            const messagesContainer = document.getElementById('autoMessages');
+            if (messagesContainer && autoFoundMessages.length > 0) {
+                messagesContainer.innerHTML = '';
+                
+                autoFoundMessages.forEach(msg => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'message';
+                    messageDiv.style.borderLeft = '4px solid #28a745';
+                    messageDiv.style.marginBottom = '15px';
+                    
+                    const messageDate = new Date(msg.timestamp);
+                    
+                    messageDiv.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                            <span style="color: #28a745; font-weight: 600; font-size: 14px;">
+                                📅 ${messageDate.toLocaleDateString()} ${messageDate.toLocaleTimeString()}
+                            </span>
+                            <div style="text-align: right; font-size: 12px; color: #666;">
+                                <div>👤 ${msg.author}</div>
+                                <div>📂 ${msg.chat}</div>
+                            </div>
+                        </div>
+                        
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+                            ${msg.text}
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div class="matched-words">
+                                🎯 Найдено: ${msg.matched_words.map(word => `<span style="background: #fff3cd; padding: 2px 6px; border-radius: 8px; font-size: 12px; margin: 0 2px;">${word}</span>`).join('')}
+                            </div>
+                            <a href="${generateMessageLink(msg)}" target="_blank" class="btn-link">
+                                🔗 Открыть в Telegram
+                            </a>
+                        </div>
+                    `;
+                    
+                    messagesContainer.appendChild(messageDiv);
+                });
+                
+                updateAutoResultsCount();
+            }
+        } else {
+            console.log('⏰ Результаты автопоиска устарели');
+        }
+    } catch (e) {
+        console.error('❌ Ошибка восстановления автопоиска:', e);
+    }
+}
+// Добавь эту функцию в самое начало JavaScript секции:
+
+function checkSavedData() {
+    console.log('🔍 ПРОВЕРЯЕМ localStorage при загрузке страницы...');
+    
+    // Проверяем что есть в localStorage
+    const keys = Object.keys(localStorage);
+    console.log('🗂️ Все ключи в localStorage:', keys);
+    
+    const saved = localStorage.getItem('test_autosearch');
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            console.log('✅ НАЙДЕНЫ ДАННЫЕ автопоиска:', data.total, 'результатов');
+            console.log('📅 Время сохранения:', new Date(data.timestamp));
+        } catch (e) {
+            console.error('❌ Ошибка парсинга данных:', e);
+        }
+    } else {
+        console.log('📭 НЕТ сохраненных данных автопоиска');
+    }
+}
+
+// Вызови эту функцию сразу при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+    checkSavedData();
+});
+
+
+
+// ===============================
+// ФУНКЦИИ СОХРАНЕНИЯ ГРУПП И АВТОПОИСКА
+// ===============================
+
+// Сохранение выбранных групп обычного поиска
+function saveSelectedGroups() {
+    try {
+        const selected = {
+            groups: selectedGroups.slice(),
+            timestamp: Date.now()
+        };
+        localStorage.setItem('message_hunter_selected_groups', JSON.stringify(selected));
+        console.log('💾 Выбранные группы сохранены:', selectedGroups.length);
+    } catch (e) {
+        console.log('❌ Не удалось сохранить выбранные группы');
+    }
+}
+
+// Восстановление выбранных групп обычного поиска
+function loadSelectedGroups() {
+    try {
+        const saved = localStorage.getItem('message_hunter_selected_groups');
+        if (!saved) return;
+        
+        const data = JSON.parse(saved);
+        const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+        
+        if (data.timestamp > weekAgo && data.groups && Array.isArray(data.groups)) {
+            selectedGroups = data.groups.slice();
+            console.log(`✅ Восстановлены выбранные группы: ${selectedGroups.length}`);
+        }
+    } catch (e) {
+        console.log('❌ Ошибка загрузки выбранных групп');
+        selectedGroups = [];
+    }
+}
+
+// Сохранение групп автопоиска
+function saveAutoSearchGroups() {
+    try {
+        const selected = {
+            groups: autoSearchGroups.slice(),
+            timestamp: Date.now()
+        };
+        localStorage.setItem('message_hunter_autosearch_groups', JSON.stringify(selected));
+        console.log('💾 Группы автопоиска сохранены:', autoSearchGroups.length);
+    } catch (e) {
+        console.log('❌ Не удалось сохранить группы автопоиска');
+    }
+}
+
+// Восстановление групп автопоиска
+function loadSavedAutoSearchGroups() {
+    try {
+        const saved = localStorage.getItem('message_hunter_autosearch_groups');
+        if (!saved) return;
+        
+        const data = JSON.parse(saved);
+        const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+        
+        if (data.timestamp > weekAgo && data.groups && Array.isArray(data.groups)) {
+            autoSearchGroups = data.groups.slice();
+            console.log(`✅ Восстановлены группы автопоиска: ${autoSearchGroups.length}`);
+        }
+    } catch (e) {
+        console.log('❌ Ошибка загрузки групп автопоиска');
+        autoSearchGroups = [];
+    }
+}
+
+// Сохранение результатов автопоиска
+function saveAutoSearchResults() {
+    try {
+        const resultsData = {
+            messages: autoFoundMessages.slice(),
+            timestamp: Date.now()
+        };
+        localStorage.setItem('message_hunter_autosearch_results', JSON.stringify(resultsData));
+        console.log('💾 Результаты автопоиска сохранены:', autoFoundMessages.length);
+    } catch (e) {
+        console.log('❌ Не удалось сохранить результаты автопоиска');
+    }
+}
+
+// Восстановление результатов автопоиска
+function loadSavedAutoSearchResults() {
+    try {
+        const saved = localStorage.getItem('message_hunter_autosearch_results');
+        if (!saved) return;
+        
+        const data = JSON.parse(saved);
+        const dayAgo = Date.now() - (24 * 60 * 60 * 1000);
+        
+        if (data.timestamp > dayAgo && data.messages && Array.isArray(data.messages)) {
+            autoFoundMessages = data.messages.slice();
+            console.log(`✅ Восстановлены результаты автопоиска: ${autoFoundMessages.length}`);
+            displaySavedAutoResults();
+        }
+    } catch (e) {
+        console.log('❌ Ошибка загрузки результатов автопоиска');
+        autoFoundMessages = [];
+    }
+}
+
+// Отображение сохраненных результатов автопоиска
+function displaySavedAutoResults() {
+    const messagesContainer = document.getElementById('autoMessages');
+    if (!messagesContainer || autoFoundMessages.length === 0) return;
+    
+    messagesContainer.innerHTML = '';
+    
+    autoFoundMessages.forEach(msg => {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+        messageDiv.style.borderLeft = '4px solid #28a745';
+        messageDiv.style.marginBottom = '15px';
+        
+        const messageDate = new Date(msg.timestamp);
+        
+        messageDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <span style="color: #28a745; font-weight: 600;">
+                    📅 ${messageDate.toLocaleDateString()} ${messageDate.toLocaleTimeString()}
+                </span>
+                <div style="text-align: right; font-size: 12px; color: #666;">
+                    <div>👤 ${msg.author}</div>
+                    <div>📂 ${msg.chat}</div>
+                </div>
+            </div>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 10px;">
+                ${msg.text}
+            </div>
+            <div class="matched-words">
+                🎯 Найдено: ${msg.matched_words.map(word => `<span style="background: #fff3cd; padding: 2px 6px; border-radius: 8px; font-size: 12px; margin: 0 2px;">${word}</span>`).join('')}
+            </div>
+        `;
+        
+        messagesContainer.appendChild(messageDiv);
+    });
+    
+    updateAutoResultsCount();
+}
+// И добавь функцию updateAutoResultsCount если её нет:
+
+function updateAutoResultsCount() {
+    const countEl = document.getElementById('autoResultsCount');
+    if (countEl) {
+        countEl.textContent = `Найдено: ${autoFoundMessages.length} сообщений`;
+        console.log(`📊 Обновлен счетчик результатов: ${autoFoundMessages.length}`);
+    }
+}
+
+// В templates/dashboard.html добавь эту функцию для отладки:
+
+function debugLocalStorage() {
+    console.log('🔍 ОТЛАДКА localStorage:');
+    
+    // Проверяем все ключи
+    const keys = Object.keys(localStorage);
+    console.log('🗂️ Все ключи:', keys);
+    
+    // Проверяем test_autosearch
+    const testData = localStorage.getItem('test_autosearch');
+    if (testData) {
+        try {
+            const parsed = JSON.parse(testData);
+            console.log('📊 Данные test_autosearch:', parsed);
+            console.log('📊 Тип данных:', typeof parsed);
+            console.log('📊 Ключи объекта:', Object.keys(parsed));
+            
+            if (parsed.messages) {
+                console.log('📊 Сообщений в messages:', parsed.messages.length);
+                if (parsed.messages.length > 0) {
+                    console.log('📊 Первое сообщение:', parsed.messages[0]);
+                }
+            }
+        } catch (e) {
+            console.error('❌ Ошибка парсинга test_autosearch:', e);
+        }
+    }
+    
+    // Проверяем основной ключ
+    const mainData = localStorage.getItem('message_hunter_autosearch_results');
+    console.log('📊 Основной ключ:', mainData ? 'есть' : 'нет');
+}
+
+// Добавь эту функцию:
+
+function forceDisplayAutoResults() {
+    console.log('🎯 ПРИНУДИТЕЛЬНОЕ отображение результатов автопоиска');
+    console.log(`📊 autoFoundMessages.length = ${autoFoundMessages.length}`);
+    
+    const messagesContainer = document.getElementById('autoMessages');
+    console.log('📦 Контейнер autoMessages:', messagesContainer ? 'найден' : 'НЕ НАЙДЕН');
+    
+    if (!messagesContainer) {
+        console.error('❌ Контейнер autoMessages НЕ НАЙДЕН!');
+        // Пробуем найти альтернативные контейнеры
+        const alternatives = ['autoSearchResults', 'autoSearchMessagesContainer'];
+        alternatives.forEach(id => {
+            const alt = document.getElementById(id);
+            console.log(`🔍 Альтернатива ${id}:`, alt ? 'найден' : 'не найден');
+        });
+        return;
+    }
+    
+    if (autoFoundMessages.length === 0) {
+        console.log('📭 Нет сообщений для отображения');
+        messagesContainer.innerHTML = `
+            <div style="text-align: center; padding: 30px; color: #666;">
+                <div style="font-size: 48px; margin-bottom: 15px;">🔍</div>
+                <h3>Нет сохраненных результатов</h3>
+                <p>Результаты автопоиска будут появляться здесь</p>
+            </div>
+        `;
+        return;
+    }
+    
+    console.log(`🎨 ОТОБРАЖАЕМ ${autoFoundMessages.length} сообщений`);
+    
+    messagesContainer.innerHTML = '<div style="padding: 10px; background: #d4edda; margin-bottom: 10px; border-radius: 5px;">🔄 Загружаем сохраненные результаты...</div>';
+    
+    // Показываем результаты по одному
+    setTimeout(() => {
+        messagesContainer.innerHTML = '';
+        
+        autoFoundMessages.forEach((msg, index) => {
+            console.log(`📝 Добавляем сообщение ${index + 1}`);
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.style.cssText = `
+                border: 2px solid #28a745;
+                padding: 15px;
+                margin: 10px 0;
+                border-radius: 10px;
+                background: #f8fff8;
+            `;
+            
+            messageDiv.innerHTML = `
+                <div style="font-weight: bold; color: #28a745; margin-bottom: 10px;">
+                    🎯 Результат автопоиска #${index + 1}
+                </div>
+                <div style="background: white; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                    ${msg.text || 'Нет текста'}
+                </div>
+                <div style="font-size: 12px; color: #666;">
+                    👤 ${msg.author || 'Аноним'} | 📂 ${msg.chat || 'Неизвестно'}
+                </div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+        });
+        
+        console.log('✅ ВСЕ сообщения добавлены в DOM');
+        
+        // Обновляем счетчик
+        updateAutoResultsCount();
+        
+    }, 100);
 }
     </script>
     

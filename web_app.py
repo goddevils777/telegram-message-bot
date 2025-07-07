@@ -40,6 +40,7 @@ SEARCH_LOCK = threading.Lock()
 # Система множественных клиентов
 active_clients = {}  # Хранилище активных клиентов {account_name: client}
 client_managers = {}  # Менеджеры клиентов для каждого аккаунта
+user_clients = {}
 
 # Система автопоиска
 auto_search_active = False
@@ -342,22 +343,59 @@ def load_saved_api_keys():
 # Загружаем ключи при старте
 load_saved_api_keys()
 
-def get_user_client(user_id):
-    """Создает клиент для локального пользователя с API ключами"""
-    # Для локальной версии всегда используем один файл ключей
-    keys_file = 'config/api_keys.json'
-    
-    if not os.path.exists(keys_file):
-        return None
+def get_user_client(user_id='local_user'):
+    """Создание клиента для пользователя"""
+    global user_clients
     
     try:
+        # Если клиент уже существует, возвращаем его
+        if user_id in user_clients:
+            print(f"♻️ Используем существующий клиент для {user_id}")
+            return user_clients[user_id]
+        
+        # Загружаем API ключи
+        keys_file = 'config/api_keys.json'
+        
+        if not os.path.exists(keys_file):
+            print("❌ Нет API ключей")
+            return None
+        
         with open(keys_file, 'r') as f:
             keys_data = json.load(f)
         
         api_id = keys_data['API_ID']
         api_hash = keys_data['API_HASH']
         
-        return Client(f"user_local", api_id=api_id, api_hash=api_hash)
+        # Проверяем есть ли файл сессии
+        session_file = None
+        sessions_dir = 'sessions'
+        
+        if os.path.exists('user_local.session'):
+            session_file = 'user_local'
+            print(f"📁 Найден файл сессии: user_local.session")
+        elif os.path.exists(sessions_dir):
+            for file in os.listdir(sessions_dir):
+                if file.endswith('.session'):
+                    session_file = os.path.join(sessions_dir, file.replace('.session', ''))
+                    print(f"📁 Найден файл сессии: {file}")
+                    break
+        
+        if not session_file:
+            print("❌ Файл сессии не найден")
+            return None
+        
+        # Создаем клиент
+        print(f"🔧 Создаем нового клиента...")
+        client = Client(
+            name=session_file,
+            api_id=int(api_id),
+            api_hash=api_hash
+        )
+        
+        user_clients[user_id] = client
+        print(f"✅ Клиент создан для {user_id}")
+        
+        return client
         
     except Exception as e:
         print(f"❌ Ошибка создания клиента: {e}")
@@ -554,36 +592,53 @@ def get_telegram_user_info():
 
 
 
+
 @app.route('/get_groups', methods=['GET'])
 def get_groups():
-    """Получить список групп пользователя для локальной версии"""
+    """Получение групп пользователя"""
     user_id = 'local_user'
     
     if not is_user_account_connected(user_id):
         return jsonify({'error': 'Сначала добавьте API ключи'}), 403
     
     try:
+        # Проверяем кэш
+        cached_groups = load_groups_cache()
+        if cached_groups and len(cached_groups) > 0:
+            print(f"📋 Возвращаем {len(cached_groups)} групп из кэша")
+            return jsonify({
+                'success': True,
+                'groups': cached_groups
+            })
+        
+        print("🔄 Загружаем группы из Telegram...")
+        
         def run_get_groups():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
                 user_client = get_user_client(user_id)
                 if not user_client:
+                    print("❌ Не удалось создать клиент")
                     return []
                 
-                groups = loop.run_until_complete(get_user_groups_real(user_client))
+                print("🚀 Запускаем получение групп...")
+                groups = loop.run_until_complete(get_all_user_groups(user_client))
                 
-                # СОХРАНЯЕМ В КЭШ
-                save_groups_cache(groups)
+                if len(groups) > 0:
+                    save_groups_cache(groups)
+                    print(f"💾 Сохранено {len(groups)} групп в кэш")
                 
                 return groups
+                
+            except Exception as e:
+                print(f"❌ Ошибка в потоке: {e}")
+                return []
             finally:
                 loop.close()
         
         future = executor.submit(run_get_groups)
-        groups = future.result(timeout=60)
-        
-        print(f"✅ Получено {len(groups)} реальных групп и сохранено в кэш")
+        groups = future.result(timeout=120)
         
         return jsonify({
             'success': True,
@@ -591,7 +646,7 @@ def get_groups():
         })
         
     except Exception as e:
-        print(f"Ошибка получения групп: {e}")
+        print(f"❌ Общая ошибка: {e}")
         return jsonify({'error': f'Ошибка: {str(e)}'}), 500
 
 # История поиска
@@ -3246,6 +3301,8 @@ def run_auto_search_monitoring():
             pass
         print("🔚 Поток мониторинга автопоиска завершен")
 
+# В web_app.py замени функцию monitor_groups_for_new_messages:
+
 async def monitor_groups_for_new_messages(client):
     """Асинхронный мониторинг групп на новые сообщения"""
     global auto_search_active, auto_search_keywords, auto_search_groups, auto_search_results, auto_search_last_check
@@ -3265,11 +3322,10 @@ async def monitor_groups_for_new_messages(client):
         
         print(f"👁️ Мониторим {len(monitored_chats)} групп")
         
-        # ИНИЦИАЛИЗАЦИЯ: запоминаем текущие последние сообщения БЕЗ добавления в результаты
+        # ИНИЦИАЛИЗАЦИЯ: запоминаем текущие последние сообщения
         print("🔄 Инициализация: запоминаем текущие сообщения...")
         for group_id, chat in monitored_chats.items():
             try:
-                # Берем только самое последнее сообщение для инициализации
                 async for message in client.get_chat_history(chat.id, limit=1):
                     auto_search_last_check[group_id] = message.id
                     print(f"📌 {chat.title}: запомнили сообщение ID {message.id}")
@@ -3280,78 +3336,100 @@ async def monitor_groups_for_new_messages(client):
         
         print("✅ Инициализация завершена. Теперь ищем только НОВЫЕ сообщения!")
         
-        # Основной цикл мониторинга
+        # ОСНОВНОЙ ЦИКЛ МОНИТОРИНГА
         while auto_search_active and not auto_search_stop_event.is_set():
             try:
+                total_new_found = 0
+                
+                # Проверяем каждую группу на новые сообщения
                 for group_id, chat in monitored_chats.items():
                     if not auto_search_active:
                         break
-                    
-                    # Получаем новые сообщения
-                    try:
-                        last_message_id = auto_search_last_check.get(group_id, 0)
-                        new_messages_found = 0
-                        latest_id = last_message_id
                         
-                        # Проверяем последние 10 сообщений
-                        async for message in client.get_chat_history(chat.id, limit=10):
-                            # Обновляем последний ID (даже если сообщение не подходит)
-                            if message.id > latest_id:
-                                latest_id = message.id
+                    try:
+                        last_checked_id = auto_search_last_check.get(group_id, 0)
+                        
+                        # ВАЖНО: собираем ВСЕ новые сообщения с последней проверки
+                        new_messages = []
+                        checked_count = 0
+                        
+                        # Проверяем до 100 сообщений чтобы точно не пропустить
+                        async for message in client.get_chat_history(chat.id, limit=100):
+                            checked_count += 1
                             
-                            # Пропускаем уже проверенные сообщения
-                            if message.id <= last_message_id:
-                                continue
-                            
+                            # Если дошли до уже проверенного сообщения - останавливаемся
+                            if message.id <= last_checked_id:
+                                break
+                                
+                            new_messages.append(message)
+                        
+                        # Сортируем от старых к новым (чтобы показать в правильном порядке)
+                        new_messages.reverse()
+                        
+                        new_found_in_group = 0
+                        latest_message_id = last_checked_id
+                        
+                        # Проверяем каждое новое сообщение
+                        for message in new_messages:
                             if message.text:
-                                # Проверяем на ключевые слова
                                 message_text = message.text.lower()
-                                matched_words = [word for word in auto_search_keywords if word in message_text]
+                                
+                                # Проверяем совпадения с ключевыми словами
+                                matched_words = []
+                                for keyword in auto_search_keywords:
+                                    if keyword.lower() in message_text:
+                                        matched_words.append(keyword)
                                 
                                 if matched_words:
-                                    # Найдено совпадение!
-                                    new_message = {
+                                    # Добавляем найденное сообщение
+                                    auto_search_results.append({
                                         'text': message.text,
                                         'author': message.from_user.username if message.from_user and message.from_user.username else "Аноним",
                                         'chat': chat.title,
-                                        'date': message.date.strftime("%d.%m.%Y %H:%M"),
-                                        'timestamp': message.date.timestamp() * 1000,
+                                        'timestamp': message.date.isoformat(),
                                         'matched_words': matched_words,
                                         'message_id': message.id,
                                         'chat_id': chat.id,
                                         'chat_username': getattr(chat, 'username', None)
-                                    }
-                                    
-                                    auto_search_results.append(new_message)
-                                    new_messages_found += 1
-                                    
-                                    print(f"🎯 НОВОЕ СООБЩЕНИЕ: {chat.title}")
-                                    print(f"   Текст: {message.text[:50]}...")
-                                    print(f"   Слова: {matched_words}")
-                                    print(f"   Автор: @{new_message['author']}")
+                                    })
+                                    new_found_in_group += 1
+                                    total_new_found += 1
+                            
+                            # Обновляем ID последнего сообщения
+                            if message.id > latest_message_id:
+                                latest_message_id = message.id
                         
-                        # Обновляем последний проверенный ID
-                        auto_search_last_check[group_id] = max(latest_id, last_message_id)
-                        
-                        if new_messages_found > 0:
-                            print(f"📊 Найдено {new_messages_found} НОВЫХ сообщений в {chat.title}")
-                        
+                        # Сохраняем ID последнего проверенного сообщения
+                        if latest_message_id > last_checked_id:
+                            auto_search_last_check[group_id] = latest_message_id
+                            
+                        if new_found_in_group > 0:
+                            print(f"🎯 {chat.title}: найдено {new_found_in_group} новых совпадений из {len(new_messages)} новых сообщений")
+                        elif len(new_messages) > 0:
+                            print(f"👀 {chat.title}: проверено {len(new_messages)} новых сообщений, совпадений нет")
+                            
                     except Exception as e:
-                        print(f"❌ Ошибка проверки группы {chat.title}: {e}")
+                        print(f"❌ Ошибка мониторинга {chat.title}: {e}")
                         continue
                 
-                # Пауза между проверками (5 секунд)
-                await asyncio.sleep(5)
+                if total_new_found > 0:
+                    print(f"🔥 ИТОГО найдено {total_new_found} новых совпадений за цикл!")
                 
+                # Пауза между циклами проверки (30 секунд)
+                print(f"😴 Пауза 30 секунд до следующей глубокой проверки...")
+                for i in range(30):
+                    if not auto_search_active or auto_search_stop_event.is_set():
+                        break
+                    await asyncio.sleep(1)
+                    
             except Exception as e:
                 print(f"❌ Ошибка в цикле мониторинга: {e}")
                 await asyncio.sleep(10)
-        
-        await client.stop()
-        print("📴 Клиент автопоиска отключен")
-        
+                
     except Exception as e:
         print(f"❌ Критическая ошибка мониторинга: {e}")
+    finally:
+        print("🔚 Мониторинг автопоиска завершен")
         auto_search_active = False
 
 @app.route('/get_auto_search_status', methods=['GET'])
@@ -3386,6 +3464,101 @@ def signal_handler(sig, frame):
 
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
+
+
+
+
+
+async def get_all_user_groups(client):
+    """Получение всех групп пользователя с запуском клиента"""
+    groups = []
+    
+    try:
+        print("🚀 Запускаем клиент...")
+        await client.start()
+        print("✅ Клиент успешно запущен")
+        
+        await asyncio.sleep(2)
+        
+        print("📋 Получаем список диалогов...")
+        dialog_count = 0
+        
+        async for dialog in client.get_dialogs():
+            dialog_count += 1
+            chat = dialog.chat
+            
+            if chat.type.name in ["GROUP", "SUPERGROUP"]:
+                try:
+                    members_count = 0
+                    try:
+                        if hasattr(chat, 'participants_count'):
+                            members_count = chat.participants_count
+                        else:
+                            members_count = getattr(chat, 'members_count', 0)
+                    except:
+                        members_count = 0
+                    
+                    groups.append({
+                        'id': str(chat.id),
+                        'title': chat.title,
+                        'type': chat.type.name,
+                        'members_count': members_count,
+                        'status': '✅ Активная группа'
+                    })
+                    
+                    print(f"✅ Группа: {chat.title} ({members_count} участников)")
+                    
+                except Exception as e:
+                    print(f"⚠️ Ошибка обработки группы {chat.title}: {e}")
+                    continue
+        
+        print(f"📊 Обработано диалогов: {dialog_count}")
+        print(f"🎯 Найдено групп: {len(groups)}")
+        
+    except Exception as e:
+        print(f"❌ Ошибка получения групп: {e}")
+    finally:
+        try:
+            await client.stop()
+            print("🛑 Клиент остановлен")
+        except:
+            pass
+    
+    return groups
+
+
+# Добавь функцию для перезапуска клиента:
+
+def restart_user_client(user_id='local_user'):
+    """Перезапуск клиента при блокировке БД"""
+    global user_clients
+    
+    try:
+        if user_id in user_clients:
+            old_client = user_clients[user_id]
+            try:
+                # Закрываем старый клиент
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(old_client.stop())
+                loop.close()
+            except:
+                pass
+            
+            del user_clients[user_id]
+            print("🔄 Старый клиент удален")
+        
+        # Создаем новый клиент
+        time.sleep(2)  # Пауза перед созданием нового
+        new_client = get_user_client(user_id)
+        print("✅ Новый клиент создан")
+        
+        return new_client
+        
+    except Exception as e:
+        print(f"❌ Ошибка перезапуска клиента: {e}")
+        return None
+
 
 
 if __name__ == '__main__':
