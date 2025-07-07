@@ -874,16 +874,16 @@
         </div>
         
         <div class="groups-actions">
-            <button class="select-btn" onclick="selectAllGroups()">✅ Выбрать все</button>
-            <button class="select-btn" onclick="deselectAllGroups()">❌ Убрать все</button>
+            <button class="select-btn" onclick="selectAllAutoGroups()">✅ Выбрать все</button>
+            <button class="select-btn" onclick="deselectAllAutoGroups()">❌ Убрать все</button>
             <span style="margin-left: 20px; color: #666;" id="selectedCount">Выбрано: 0 групп</span>
         </div>
         
-        <div class="groups-container" id="groupsContainer">
-            <div style="text-align: center; padding: 20px; color: #666;">
-                Загрузка групп...
-            </div>
-        </div>
+<div class="groups-container" id="autoSearchGroupsContainer" style="max-height: 300px; border: 1px solid #ddd; border-radius: 5px; padding: 10px;">
+    <div style="text-align: center; padding: 20px; color: #666;">
+        🔄 Загрузка групп...
+    </div>
+</div>
     </div>
                 <div class="keyword-input-section">
                     <input type="text" 
@@ -1156,11 +1156,19 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <h4 style="color: #333;">📂 Группы для мониторинга</h4>
                 <button class="select-btn" onclick="refreshAutoSearchGroups()">🔄 Обновить</button>
+                  <button type="button" onclick="resetAutoSearchData()" class="btn-secondary" style="background: #dc3545; color: white;">
+        🗑️ Сброс
+    </button>
+    <button type="button" onclick="debugAutoSearchElements()" class="btn-secondary" style="background: #6f42c1; color: white;">
+        🔍 Отладка
+    </button>
+    <span id="autosearch-selected-count" class="selected-count">0</span> выбрано
             </div>
             
             <div class="groups-actions">
                 <button class="select-btn" onclick="selectAllAutoGroups()">✅ Выбрать все</button>
                 <button class="select-btn" onclick="deselectAllAutoGroups()">❌ Убрать все</button>
+                
                 <span style="margin-left: 20px; color: #666;" id="autoSelectedCount">Выбрано: 0 групп</span>
             </div>
             
@@ -1567,49 +1575,347 @@ function addNewAutoResults(newMessages) {
             console.log(`✅ Переключились на вкладку: ${tabName}`);
         }
         
-        // Загрузка списка групп (с сохранением в браузере)
-        function loadGroups() {
-            // Сначала пытаемся загрузить из браузера
-            const cachedGroups = getCachedGroups();
-            if (cachedGroups && cachedGroups.length > 0) {
-                console.log('📋 Загружаю группы из кэша браузера');
-                allGroups = cachedGroups;
-                selectedGroups = cachedGroups.map(g => g.id);
-                displayGroups();
-                return;
-            }
+async function loadGroups() {
+    console.log('📋 Загружаю группы...');
+    
+    try {
+        // Сначала проверяем кэш
+        const cached = loadGroupsCache();
+        if (cached && cached.length > 0) {
+            console.log('📋 Найден валидный кэш групп');
             
-            console.log('🔄 Загружаю группы с сервера...');
+            // ИСПРАВЛЕНО: сначала отображаем группы
+            displayGroups(cached);
             
-            // Показываем индикатор загрузки
-            document.getElementById('groupsContainer').innerHTML = 
-                '<div style="text-align: center; padding: 20px; color: #666;">Загрузка групп...</div>';
+            // ДОБАВЛЯЕМ ОТЛАДКУ ЧЕРЕЗ 1 СЕКУНДУ
+            setTimeout(() => {
+                console.log('🔍 === ОТЛАДКА ПОСЛЕ ОТОБРАЖЕНИЯ ГРУПП ===');
+                debugAutoSearchElements();
+                
+                // ВАЖНО: восстанавливаем сохраненные выборы ПОСЛЕ отображения групп
+                restoreGroupSelections();
+            }, 1000);
             
-            fetch('/get_groups')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    allGroups = data.groups;
-                    selectedGroups = data.groups.map(g => g.id);
-                    
-                    // Сохраняем в браузер
-                    saveCachedGroups(allGroups);
-                    
-                    displayGroups();
-                    console.log(`✅ Загружено и сохранено ${allGroups.length} групп`);
-                } else {
-                    document.getElementById('groupsContainer').innerHTML = 
-                        '<div style="text-align: center; padding: 20px; color: #dc3545;">Ошибка загрузки групп</div>';
-                    console.error('❌ Ошибка загрузки групп');
-                }
-            })
-            .catch(error => {
-                console.error('❌ Ошибка загрузки групп:', error);
-                document.getElementById('groupsContainer').innerHTML = 
-                    '<div style="text-align: center; padding: 20px; color: #dc3545;">Ошибка загрузки групп</div>';
-            });
+            return;
         }
         
+        console.log('🔄 Загружаю группы с сервера...');
+        showGroupsLoading(true);
+        
+        const response = await fetch('/get_groups');
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log(`✅ Загружено ${data.groups.length} групп`);
+            
+            // Сохраняем в кэш
+            saveGroupsCache(data.groups);
+            
+            // Отображаем группы
+            displayGroups(data.groups);
+            
+            // ДОБАВЛЯЕМ ОТЛАДКУ ЧЕРЕЗ 1 СЕКУНДУ
+            setTimeout(() => {
+                console.log('🔍 === ОТЛАДКА ПОСЛЕ ЗАГРУЗКИ ГРУПП С СЕРВЕРА ===');
+                debugAutoSearchElements();
+                
+                // ВАЖНО: восстанавливаем выборы после отображения
+                restoreGroupSelections();
+            }, 1000);
+            
+        } else {
+            throw new Error(data.error || 'Неизвестная ошибка');
+        }
+        
+    } catch (error) {
+        console.error('❌ Ошибка загрузки групп:', error);
+        document.getElementById('groups-list').innerHTML = 
+            `<div class="error-message">❌ Ошибка: ${error.message}</div>`;
+    } finally {
+        showGroupsLoading(false);
+    }
+}
+
+
+// ============= НЕДОСТАЮЩИЕ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =============
+
+// Функция загрузки кэша групп
+function loadGroupsCache() {
+    try {
+        const cached = localStorage.getItem('message_hunter_groups_cache');
+        if (!cached) {
+            console.log('📭 Кэш групп не найден');
+            return null;
+        }
+        
+        const cacheData = JSON.parse(cached);
+        const now = Date.now();
+        
+        // Проверяем не истек ли кэш (24 часа)
+        if (now > cacheData.expires_at) {
+            console.log('⏰ Кэш групп истек');
+            localStorage.removeItem('message_hunter_groups_cache');
+            return null;
+        }
+        
+        console.log(`📋 Загружаю группы из кэша браузера: ${cacheData.groups.length} групп`);
+        return cacheData.groups;
+        
+    } catch (error) {
+        console.error('❌ Ошибка загрузки кэша групп:', error);
+        localStorage.removeItem('message_hunter_groups_cache');
+        return null;
+    }
+}
+
+// Функция сохранения кэша групп
+function saveGroupsCache(groups) {
+    try {
+        const cacheData = {
+            groups: groups,
+            cached_at: Date.now(),
+            expires_at: Date.now() + (24 * 60 * 60 * 1000) // 24 часа
+        };
+        
+        localStorage.setItem('message_hunter_groups_cache', JSON.stringify(cacheData));
+        console.log(`💾 Кэш групп сохранен: ${groups.length} групп`);
+        
+    } catch (error) {
+        console.error('❌ Ошибка сохранения кэша групп:', error);
+    }
+}
+
+// Функция показа/скрытия загрузки групп
+function showGroupsLoading(show) {
+    console.log(`🔄 Показываем загрузку групп: ${show}`);
+    
+    // Для обычного поиска
+    const groupsList = document.getElementById('groups-list');
+    if (groupsList) {
+        if (show) {
+            groupsList.innerHTML = '<div class="loading-message">🔄 Загружаем группы...</div>';
+        }
+    }
+    
+    // Для автопоиска
+    const autoSearchGroupsList = document.getElementById('autosearch-groups-list');
+    if (autoSearchGroupsList) {
+        if (show) {
+            autoSearchGroupsList.innerHTML = '<div class="loading-message">🔄 Загружаем группы...</div>';
+        }
+    }
+    
+    // Для рассылки
+    const broadcastGroupsList = document.getElementById('broadcast-groups-list');
+    if (broadcastGroupsList) {
+        if (show) {
+            broadcastGroupsList.innerHTML = '<div class="loading-message">🔄 Загружаем группы...</div>';
+        }
+    }
+}
+
+// Функция принудительного обновления групп
+async function refreshGroups() {
+    console.log('🔄 Принудительное обновление групп...');
+    
+    try {
+        // Очищаем кэш
+        localStorage.removeItem('message_hunter_groups_cache');
+        
+        showGroupsLoading(true);
+        
+        const response = await fetch('/refresh_groups_cache', {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log(`✅ Группы обновлены: ${data.groups.length}`);
+            
+            // Сохраняем в кэш
+            saveGroupsCache(data.groups);
+            
+            // Отображаем группы
+            displayGroups(data.groups);
+            
+            // Восстанавливаем выборы
+            restoreGroupSelections();
+            
+            showToast('✅ Группы обновлены', 'success');
+            
+        } else {
+            throw new Error(data.error || 'Ошибка обновления');
+        }
+        
+    } catch (error) {
+        console.error('❌ Ошибка обновления групп:', error);
+        showToast(`❌ Ошибка: ${error.message}`, 'error');
+    } finally {
+        showGroupsLoading(false);
+    }
+}
+
+// Функция выбора/снятия всех групп
+function toggleAllGroups(type, checked) {
+    console.log(`🔄 ${checked ? 'Выбираем' : 'Снимаем'} все группы для ${type}`);
+    
+    let checkboxes;
+    
+    switch(type) {
+        case 'search':
+            checkboxes = document.querySelectorAll('input[name="groups"]');
+            break;
+        case 'autosearch':
+            checkboxes = document.querySelectorAll('input[name="autosearch-groups"]');
+            break;
+        case 'broadcast':
+            checkboxes = document.querySelectorAll('input[name="broadcast-groups"]');
+            break;
+        default:
+            console.error('❌ Неизвестный тип:', type);
+            return;
+    }
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = checked;
+    });
+    
+    // Сохраняем выбор и обновляем счетчики
+    saveGroupSelection(type);
+    updateSelectedGroupsCount();
+    
+    console.log(`✅ ${checked ? 'Выбрано' : 'Снято'} ${checkboxes.length} групп для ${type}`);
+}
+
+// Простая функция показа уведомлений
+function showToast(message, type = 'info') {
+    console.log(`📢 ${type.toUpperCase()}: ${message}`);
+    
+    // Создаем простое уведомление
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#007bff'};
+        color: white;
+        padding: 15px 20px;
+        border-radius: 5px;
+        z-index: 10000;
+        font-size: 14px;
+        max-width: 300px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    `;
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    // Убираем через 3 секунды
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+    }, 3000);
+}
+
+
+
+// ============= ФУНКЦИЯ ОЧИСТКИ ПОВРЕЖДЕННЫХ ДАННЫХ =============
+
+function cleanupCorruptedData() {
+    console.log('🧹 Очищаем поврежденные данные...');
+    
+    const keysToCheck = [
+        'message_hunter_search_groups',
+        'message_hunter_autosearch_groups', 
+        'message_hunter_broadcast_groups',
+        'message_hunter_autosearch_results',
+        'message_hunter_autosearch_keywords'
+    ];
+    
+    keysToCheck.forEach(key => {
+        try {
+            const data = localStorage.getItem(key);
+            if (data) {
+                JSON.parse(data); // Проверяем валидность JSON
+                console.log(`✅ ${key} - данные валидны`);
+            }
+        } catch (e) {
+            console.log(`🗑️ Удаляем поврежденные данные: ${key}`);
+            localStorage.removeItem(key);
+        }
+    });
+}
+
+// ============= ФУНКЦИЯ СБРОСА ДАННЫХ АВТОПОИСКА =============
+
+function resetAutoSearchData() {
+    console.log('🔄 Сбрасываем данные автопоиска...');
+    
+    const autoSearchKeys = [
+        'message_hunter_autosearch_groups',
+        'message_hunter_autosearch_results', 
+        'message_hunter_autosearch_keywords'
+    ];
+    
+    autoSearchKeys.forEach(key => {
+        localStorage.removeItem(key);
+        console.log(`🗑️ Удален ключ: ${key}`);
+    });
+    
+    // Очищаем интерфейс
+    const groupsCheckboxes = document.querySelectorAll('input[name="autosearch-groups"]');
+    groupsCheckboxes.forEach(cb => cb.checked = false);
+    
+    const keywordsInput = document.getElementById('autosearch-keywords');
+    if (keywordsInput) {
+        keywordsInput.value = '';
+    }
+    
+    const messagesContainer = document.getElementById('autosearch-messages');
+    if (messagesContainer) {
+        messagesContainer.innerHTML = '<div class="no-results">📭 Нет сохраненных результатов</div>';
+    }
+    
+    updateSelectedGroupsCount();
+    
+    console.log('✅ Данные автопоиска сброшены');
+}
+
+
+function updateSelectedGroupsCount() {
+    // Подсчет для автопоиска
+    const autoSearchCheckboxes = document.querySelectorAll('input[name="autosearch-groups"]:checked');
+    const autoSearchCount = autoSearchCheckboxes.length;
+    
+    const autoSearchCounter = document.getElementById('autosearch-selected-count');
+    if (autoSearchCounter) {
+        autoSearchCounter.textContent = autoSearchCount;
+        console.log(`📊 Обновлен счетчик автопоиска: ${autoSearchCount}`);
+    }
+    
+    // Подсчет для рассылки
+    const broadcastCheckboxes = document.querySelectorAll('input[name="broadcast-groups"]:checked');
+    const broadcastCount = broadcastCheckboxes.length;
+    
+    const broadcastCounter = document.getElementById('broadcast-selected-count');
+    if (broadcastCounter) {
+        broadcastCounter.textContent = broadcastCount;
+        console.log(`📊 Обновлен счетчик рассылки: ${broadcastCount}`);
+    }
+    
+    // Подсчет для обычного поиска
+    const searchCheckboxes = document.querySelectorAll('input[name="groups"]:checked');
+    const searchCount = searchCheckboxes.length;
+    
+    const searchCounter = document.getElementById('search-selected-count');
+    if (searchCounter) {
+        searchCounter.textContent = searchCount;
+        console.log(`📊 Обновлен счетчик поиска: ${searchCount}`);
+    }
+}
+
         // Функции для работы с кэшем в браузере
         function saveCachedGroups(groups) {
             try {
@@ -1665,34 +1971,146 @@ function addNewAutoResults(newMessages) {
             loadGroups(); // Загружаем заново
         }
         
-        // Отображение списка групп
-        function displayGroups() {
-            const container = document.getElementById('groupsContainer');
+
+// ============= ИСПРАВЛЕННАЯ ФУНКЦИЯ displayGroups С ПРАВИЛЬНЫМИ ID =============
+
+function displayGroups(groups) {
+    console.log(`📋 Отображаю ${groups.length} групп`);
+    
+    // ОТЛАДКА: показываем первые 3 группы
+    console.log('🔍 ОТЛАДКА первых 3 групп:');
+    groups.slice(0, 3).forEach((group, i) => {
+        console.log(`  ${i + 1}. ID: "${group.id}", Title: "${group.title}"`);
+    });
+    
+    // Для обычного поиска
+    const groupsList = document.getElementById('groups-list');
+    if (groupsList) {
+        groupsList.innerHTML = groups.map(group => `
+            <div class="group-item">
+                <label class="group-label">
+                    <input type="checkbox" name="groups" value="${group.id}" 
+                           onchange="saveGroupSelection('search')">
+                    <span class="group-title">${group.title}</span>
+                    <small class="group-info">${group.members_count} участников</small>
+                </label>
+            </div>
+        `).join('');
+        console.log('✅ Группы для обычного поиска отображены');
+    }
+    
+    // ДЛЯ АВТОПОИСКА - ИСПОЛЬЗУЕМ ПРАВИЛЬНЫЙ ID КОНТЕЙНЕРА
+    const autoSearchGroupsList = document.getElementById('autoSearchGroupsContainer');
+    if (autoSearchGroupsList) {
+        const autoSearchHTML = groups.map(group => `
+            <div class="group-item">
+                <input type="checkbox" 
+                    class="group-checkbox" 
+                    name="autosearch-groups"
+                    value="${group.id}"
+                    id="auto_group_${group.id}"
+                    onchange="saveGroupSelection('autosearch'); updateSelectedGroupsCount();">
+                <label for="auto_group_${group.id}" class="group-label">
+                    <span class="group-title">${group.title}</span>
+                    <small class="group-info">${group.members_count} участников</small>
+                </label>
+            </div>
+        `).join('');
+        
+        autoSearchGroupsList.innerHTML = autoSearchHTML;
+        console.log('✅ Группы автопоиска отображены в autoSearchGroupsContainer');
+        
+        // ОТЛАДКА: проверяем что чекбоксы созданы
+        setTimeout(() => {
+            const createdCheckboxes = document.querySelectorAll('input[name="autosearch-groups"]');
+            console.log(`🔍 Создано ${createdCheckboxes.length} чекбоксов автопоиска`);
             
-            if (allGroups.length === 0) {
-                container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Группы не найдены</div>';
+            // Показываем первые 3 созданных чекбокса
+            console.log('🔍 Первые 3 созданных чекбокса:');
+            Array.from(createdCheckboxes).slice(0, 3).forEach((cb, i) => {
+                console.log(`  ${i + 1}. name="${cb.name}", value="${cb.value}"`);
+            });
+        }, 100);
+        
+    } else {
+        console.error('❌ Элемент autoSearchGroupsContainer не найден!');
+        
+        // ПОПРОБУЕМ НАЙТИ АЛЬТЕРНАТИВНЫЕ КОНТЕЙНЕРЫ
+        const alternatives = [
+            'autosearch-groups-list',
+            'autoSearchGroups', 
+            'auto-groups-container',
+            'groups-container-auto'
+        ];
+        
+        console.log('🔍 Ищем альтернативные контейнеры...');
+        alternatives.forEach(id => {
+            const element = document.getElementById(id);
+            console.log(`  ${id}: ${element ? 'НАЙДЕН' : 'НЕ НАЙДЕН'}`);
+        });
+    }
+    
+    // Для рассылки
+    const broadcastGroupsList = document.getElementById('broadcast-groups-list');
+    if (broadcastGroupsList) {
+        broadcastGroupsList.innerHTML = groups.map(group => `
+            <div class="group-item">
+                <label class="group-label">
+                    <input type="checkbox" name="broadcast-groups" value="${group.id}" 
+                           onchange="saveGroupSelection('broadcast'); updateSelectedGroupsCount();">
+                    <span class="group-title">${group.title}</span>
+                    <small class="group-info">${group.members_count} участников</small>
+                </label>
+            </div>
+        `).join('');
+        console.log('✅ Группы для рассылки отображены');
+    }
+    
+    console.log('✅ Все группы отображены успешно');
+}
+        
+
+// ============= ИСПРАВЛЕННАЯ ФУНКЦИЯ СОХРАНЕНИЯ ВЫБОРА ГРУПП =============
+
+function saveGroupSelection(type) {
+    console.log(`💾 Сохраняем выбор групп для: ${type}`);
+    
+    try {
+        let checkboxes, storageKey;
+        
+        switch(type) {
+            case 'search':
+                checkboxes = document.querySelectorAll('input[name="groups"]:checked');
+                storageKey = 'message_hunter_search_groups';
+                break;
+                
+            case 'autosearch':
+                checkboxes = document.querySelectorAll('input[name="autosearch-groups"]:checked');
+                storageKey = 'message_hunter_autosearch_groups';
+                break;
+                
+            case 'broadcast':
+                checkboxes = document.querySelectorAll('input[name="broadcast-groups"]:checked');
+                storageKey = 'message_hunter_broadcast_groups';
+                break;
+                
+            default:
+                console.error('❌ Неизвестный тип сохранения:', type);
                 return;
-            }
-            
-            // Всегда обновляем интерфейс, независимо от активной вкладки
-            container.innerHTML = allGroups.map(group => `
-                <div class="group-item">
-                    <input type="checkbox" 
-                           class="group-checkbox" 
-                           id="group_${group.id}"
-                           ${selectedGroups.includes(group.id) ? 'checked' : ''}
-                           onchange="toggleGroup('${group.id}')">
-                    <div class="group-info">
-                        <div class="group-title">${group.title}</div>
-                        <div class="group-type">${group.status || group.type}</div>
-                    </div>
-                </div>
-            `).join('');
-            
-            updateSelectedCount();
-            console.log(`📋 Интерфейс обновлён: ${allGroups.length} групп отображено`);
         }
         
+        const selectedGroups = Array.from(checkboxes).map(cb => cb.value);
+        localStorage.setItem(storageKey, JSON.stringify(selectedGroups));
+        
+        console.log(`✅ Сохранено ${selectedGroups.length} групп для ${type}`);
+        
+        // Обновляем счетчики
+        updateSelectedGroupsCount();
+        
+    } catch (error) {
+        console.error('❌ Ошибка сохранения выбора групп:', error);
+    }
+}
         // Переключение выбора группы
         function toggleGroup(groupId) {
             if (selectedGroups.includes(groupId)) {
@@ -2824,174 +3242,293 @@ function addNewAutoResults(newMessages) {
             // Показываем модальное окно настроек
             document.getElementById('apiKeysModal').style.display = 'block';
         }
+// ============= ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ФУНКЦИЯ initializeApp =============
 
-        function initializeApp() {
-            console.log('🚀 Инициализация приложения...');
+async function initializeApp() {
+    console.log('🚀 Инициализация приложения...');
+    
+    try {
+        // 1. ОЧИЩАЕМ ПОВРЕЖДЕННЫЕ ДАННЫЕ
+        cleanupCorruptedData();
+        
+        // 2. ПРОВЕРЯЕМ СМЕНУ АККАУНТА
+        const urlParams = new URLSearchParams(window.location.search);
+        const needRefresh = urlParams.get('refresh_groups') === 'true';
+        
+        if (needRefresh) {
+            console.log('🔄 Обнаружена смена аккаунта, запускаем обновление групп...');
+            window.history.replaceState({}, document.title, window.location.pathname);
             
-            // ПРОВЕРЯЕМ НУЖНО ЛИ ОБНОВИТЬ ГРУППЫ ПОСЛЕ СМЕНЫ АККАУНТА
-            const urlParams = new URLSearchParams(window.location.search);
-            const needRefresh = urlParams.get('refresh_groups') === 'true';
-            
-            if (needRefresh) {
-                console.log('🔄 Обнаружена смена аккаунта, запускаем обновление групп...');
-                
-                // Убираем параметр из URL
-                window.history.replaceState({}, document.title, window.location.pathname);
-                
-                // Показываем индикатор обновления
+            if (typeof showGroupsRefreshIndicator === 'function') {
                 showGroupsRefreshIndicator();
-                
-                // Запускаем обновление групп
-                setTimeout(() => {
-                    autoRefreshGroupsAfterAccountChange();
-                }, 1000);
             }
             
-        // ВОССТАНАВЛИВАЕМ АКТИВНУЮ ВКЛАДКУ
+            setTimeout(() => {
+                if (typeof autoRefreshGroupsAfterAccountChange === 'function') {
+                    autoRefreshGroupsAfterAccountChange();
+                }
+            }, 1000);
+        }
+        
+        // 3. ВОССТАНАВЛИВАЕМ АКТИВНУЮ ВКЛАДКУ
         const savedTab = localStorage.getItem('activeTab') || 'search';
         console.log(`🔄 Восстанавливаем вкладку: ${savedTab}`);
-
+        
         // Убираем все активные классы
         document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-
-        // СПЕЦИАЛЬНАЯ ОБРАБОТКА ДЛЯ АВТОПОИСКА (скрытая вкладка)
+        
+        // 4. ОБРАБОТКА ВКЛАДОК
         if (savedTab === 'autosearch') {
             const autoSearchTab = document.getElementById('autosearch-tab');
             if (autoSearchTab) {
                 autoSearchTab.classList.add('active');
                 console.log('✅ Восстановлена скрытая вкладка автопоиска');
                 
+                // ВОССТАНАВЛИВАЕМ ДАННЫЕ АВТОПОИСКА ЧЕРЕЗ 1 СЕКУНДУ
                 setTimeout(() => {
                     console.log('🔄 ЗАПУСКАЕМ восстановление данных автопоиска...');
-                    // ДОБАВЬ ПРЯМОЙ ВЫЗОВ С ПРОВЕРКОЙ
-                    console.log('🎯 Вызываем loadSavedAutoSearchResults...');
+                    
+                    // ПРЯМОЕ ВОССТАНОВЛЕНИЕ ДАННЫХ БЕЗ ЗАВИСИМОСТИ ОТ ФУНКЦИЙ
+                    restoreAutoSearchData();
+                    
+                    // Дополнительные функции если они есть
                     if (typeof loadSavedAutoSearchResults === 'function') {
-                        console.log('✅ Функция loadSavedAutoSearchResults найдена');
                         loadSavedAutoSearchResults();
-                    } else {
-                        console.error('❌ Функция loadSavedAutoSearchResults НЕ НАЙДЕНА!');
-                        
-                        // ПРИНУДИТЕЛЬНОЕ ВОССТАНОВЛЕНИЕ ПРЯМО ЗДЕСЬ
-                        console.log('🚨 ПРИНУДИТЕЛЬНОЕ восстановление...');
-                        try {
-                            const saved = localStorage.getItem('test_autosearch');
-                            if (saved) {
-                                const data = JSON.parse(saved);
-                                console.log('📊 Найдены данные:', data);
-                                
-                                if (data.messages && data.messages.length > 0) {
-                                    console.log(`🎯 Восстанавливаем ${data.messages.length} сообщений`);
-                                    
-                                    // Устанавливаем переменную
-                                    if (typeof autoFoundMessages !== 'undefined') {
-                                        autoFoundMessages = data.messages.slice();
-                                        console.log('✅ autoFoundMessages установлена:', autoFoundMessages.length);
-                                        
-                                        // Показываем результаты через 1 секунду
-                                        setTimeout(() => {
-                                            const container = document.getElementById('autoMessages');
-                                            if (container) {
-                                                console.log('📺 Контейнер найден, отображаем...');
-                                                container.innerHTML = '';
-                                                
-                                                data.messages.forEach((msg, i) => {
-                                                    const div = document.createElement('div');
-                                                    div.style.cssText = 'border: 2px solid #28a745; padding: 15px; margin: 10px 0; border-radius: 10px; background: #f8fff8;';
-                                                    div.innerHTML = `
-                                                        <div style="font-weight: bold; color: #28a745; margin-bottom: 10px;">
-                                                            🎯 Восстановленный результат #${i + 1}
-                                                        </div>
-                                                        <div style="background: white; padding: 10px; border-radius: 5px;">
-                                                            ${msg.text}
-                                                        </div>
-                                                        <div style="font-size: 12px; color: #666; margin-top: 10px;">
-                                                            👤 ${msg.author} | 📂 ${msg.chat}
-                                                        </div>
-                                                    `;
-                                                    container.appendChild(div);
-                                                });
-                                                
-                                                console.log('✅ РЕЗУЛЬТАТЫ ОТОБРАЖЕНЫ!');
-                                            } else {
-                                                console.error('❌ Контейнер autoMessages не найден');
-                                            }
-                                        }, 1500);
-                                        
-                                    } else {
-                                        console.error('❌ Переменная autoFoundMessages не определена');
-                                    }
-                                }
-                            }
-                        } catch (e) {
-                            console.error('❌ Ошибка принудительного восстановления:', e);
-                        }
                     }
                     
-                    updateAutoSearchAccountInfo();
-                    checkAutoSearchStatus();
-             
-                    loadAutoSearchGroups();
-                    loadSavedAutoSearchResults(); // ЭТА СТРОКА ДОЛЖНА ВЫПОЛНИТЬСЯ
-                   
-               
+                    if (typeof updateAutoSearchAccountInfo === 'function') {
+                        updateAutoSearchAccountInfo();
+                    }
+                    
+                    if (typeof checkAutoSearchStatus === 'function') {
+                        checkAutoSearchStatus();
+                    }
+                    
+                    if (typeof loadAutoSearchGroups === 'function') {
+                        loadAutoSearchGroups();
+                    }
+                    
                 }, 1000);
             } else {
                 console.error('❌ Вкладка autosearch-tab не найдена, переключаемся на search');
                 localStorage.setItem('activeTab', 'search');
-                document.getElementById('search-tab').classList.add('active');
+                showTab('search');
             }
         } else {
             // Обычные вкладки
-            const targetTab = document.querySelector(`[onclick="switchTab('${savedTab}')"]`);
-            const targetContent = document.getElementById(`${savedTab}-tab`);
-
-            if (targetTab && targetContent) {
-                targetTab.classList.add('active');
-                targetContent.classList.add('active');
-            } else {
-                // Если вкладка не найдена, переключаемся на search
-                console.error(`❌ Вкладка ${savedTab} не найдена, переключаемся на search`);
-                localStorage.setItem('activeTab', 'search');
-                document.getElementById('search-tab').classList.add('active');
-                document.querySelector(`[onclick="switchTab('search')"]`).classList.add('active');
-            }
+            showTab(savedTab);
         }
+        
+        // 5. ЗАГРУЖАЕМ API КЛЮЧИ И ГРУППЫ
+        const apiResponse = await fetch('/check_api_keys');
+        const apiData = await apiResponse.json();
+        
+        if (apiData.has_keys) {
+            const modal = document.getElementById('apiKeysModal');
+            if (modal) modal.style.display = 'none';
             
-       
+            if (!needRefresh) {
+                await loadGroups(); // Используем нашу новую функцию
+            }
             
-            // Остальная инициализация...
-            fetch('/check_api_keys')
-            .then(r => r.json())
-            .then(data => {
-                if (data.has_keys) {
-                    document.getElementById('apiKeysModal').style.display = 'none';
-                    if (!needRefresh) {  // Не загружаем группы если уже обновляем
-                        loadGroups();
-                    }
-                    loadHistory();
+            if (typeof loadHistory === 'function') {
+                loadHistory();
+            }
+        } else {
+            const modal = document.getElementById('apiKeysModal');
+            if (modal) modal.style.display = 'block';
+        }
+        
+        // 6. ДОПОЛНИТЕЛЬНАЯ ИНИЦИАЛИЗАЦИЯ
+        if (typeof loadAccountInfo === 'function') {
+            loadAccountInfo();
+        }
+        
+        if (typeof updateAccountDisplay === 'function') {
+            updateAccountDisplay();
+        }
+        
+        if (typeof checkAutoSearchStatus === 'function') {
+            checkAutoSearchStatus();
+        }
+        
+        // 7. ПРОВЕРЯЕМ ВКЛАДКИ
+        setTimeout(() => {
+            const requiredTabs = ['search-tab', 'broadcast-tab', 'history-tab', 'autosearch-tab'];
+            requiredTabs.forEach(tabId => {
+                const tab = document.getElementById(tabId);
+                if (!tab) {
+                    console.error(`❌ Отсутствует вкладка: ${tabId}`);
                 } else {
-                    document.getElementById('apiKeysModal').style.display = 'block';
+                    console.log(`✅ Найдена вкладка: ${tabId}`);
                 }
             });
+        }, 2000);
+        
+        console.log('✅ Инициализация завершена успешно');
+        
+    } catch (error) {
+        console.error('❌ Ошибка инициализации:', error);
+    }
+}
 
-            loadAccountInfo();
-            updateAccountDisplay();
-            // ПРОВЕРЯЕМ СТАТУС АВТОПОИСКА ПРИ ЗАГРУЗКЕ
-            checkAutoSearchStatus();
-                // ПРОВЕРЯЕМ НАЛИЧИЕ ВСЕХ ВКЛАДОК
-                setTimeout(() => {
-                    const requiredTabs = ['search-tab', 'broadcast-tab', 'history-tab', 'autosearch-tab'];
-                    requiredTabs.forEach(tabId => {
-                        const tab = document.getElementById(tabId);
-                        if (!tab) {
-                            console.error(`❌ Отсутствует вкладка: ${tabId}`);
-                        } else {
-                            console.log(`✅ Найдена вкладка: ${tabId}`);
-                        }
-                    });
-                }, 2000);
+// ============= ФУНКЦИЯ ПРЯМОГО ВОССТАНОВЛЕНИЯ ДАННЫХ АВТОПОИСКА =============
+
+function restoreAutoSearchData() {
+    console.log('🔄 ПРЯМОЕ восстановление данных автопоиска...');
+    
+    try {
+        // Проверяем разные ключи в localStorage
+        let saved = localStorage.getItem('test_autosearch');
+        let keyUsed = 'test_autosearch';
+        
+        if (!saved) {
+            saved = localStorage.getItem('message_hunter_autosearch_results');
+            keyUsed = 'message_hunter_autosearch_results';
         }
+        
+        if (!saved) {
+            console.log('📭 НЕТ сохраненных данных автопоиска');
+            return;
+        }
+        
+        console.log(`✅ НАЙДЕНЫ данные в ключе: ${keyUsed}`);
+        
+        const data = JSON.parse(saved);
+        console.log('📊 Данные:', data);
+        
+        // Восстанавливаем сообщения
+        let messages = [];
+        if (data.messages && Array.isArray(data.messages)) {
+            messages = data.messages;
+        } else if (Array.isArray(data)) {
+            messages = data;
+        }
+        
+        if (messages.length > 0) {
+            console.log(`📨 Восстанавливаем ${messages.length} сообщений`);
+            
+            // Устанавливаем глобальную переменную если она существует
+            if (typeof autoFoundMessages !== 'undefined') {
+                autoFoundMessages = messages.slice();
+                console.log('✅ autoFoundMessages установлена');
+            }
+            
+            // ПРИНУДИТЕЛЬНО ОТОБРАЖАЕМ РЕЗУЛЬТАТЫ
+            setTimeout(() => {
+                forceDisplayAutoResults(messages);
+            }, 1500);
+        }
+        
+        // Восстанавливаем ключевые слова
+        if (data.keywords && Array.isArray(data.keywords)) {
+            const keywordsInput = document.getElementById('autosearch-keywords');
+            if (keywordsInput) {
+                keywordsInput.value = data.keywords.join(', ');
+                console.log('✅ Восстановлены ключевые слова:', data.keywords);
+            }
+        }
+        
+    } catch (e) {
+        console.error('❌ Ошибка прямого восстановления:', e);
+    }
+}
+
+// ============= ФУНКЦИЯ ПРИНУДИТЕЛЬНОГО ОТОБРАЖЕНИЯ РЕЗУЛЬТАТОВ =============
+
+function forceDisplayAutoResults(messages) {
+    console.log('🎯 ПРИНУДИТЕЛЬНОЕ отображение результатов автопоиска...');
+    
+    const container = document.getElementById('autoMessages') || 
+                     document.getElementById('autosearch-messages') ||
+                     document.querySelector('#autosearch-tab .messages-container');
+    
+    if (!container) {
+        console.error('❌ Контейнер для результатов не найден');
+        // Пробуем найти любой подходящий контейнер
+        const autoTab = document.getElementById('autosearch-tab');
+        if (autoTab) {
+            const possibleContainers = autoTab.querySelectorAll('div');
+            console.log(`🔍 Найдено ${possibleContainers.length} div элементов в autosearch-tab`);
+        }
+        return;
+    }
+    
+    console.log(`📺 Контейнер найден: ${container.id}, отображаем ${messages.length} сообщений`);
+    
+    container.innerHTML = '';
+    
+    messages.forEach((msg, index) => {
+        const messageDiv = document.createElement('div');
+        messageDiv.style.cssText = `
+            border: 2px solid #28a745;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            background: #f8fff8;
+        `;
+        
+        messageDiv.innerHTML = `
+            <div style="font-weight: bold; color: #28a745; margin-bottom: 10px;">
+                🎯 Восстановленный результат #${index + 1}
+            </div>
+            <div style="background: white; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                ${msg.text || 'Текст сообщения'}
+            </div>
+            <div style="font-size: 12px; color: #666;">
+                👤 ${msg.author || 'Неизвестно'} | 📂 ${msg.chat || 'Неизвестно'}
+                ${msg.timestamp ? ` | 🕒 ${new Date(msg.timestamp).toLocaleString()}` : ''}
+            </div>
+        `;
+        
+        container.appendChild(messageDiv);
+    });
+    
+    console.log('✅ РЕЗУЛЬТАТЫ ОТОБРАЖЕНЫ УСПЕШНО!');
+    
+    // Обновляем статистику если есть элемент
+    const statsElement = document.getElementById('autosearch-stats') || 
+                         document.querySelector('#autosearch-tab .stats');
+    if (statsElement) {
+        statsElement.innerHTML = `📊 Восстановлено: ${messages.length} сообщений`;
+    }
+}
+
+// ============= УНИВЕРСАЛЬНАЯ ФУНКЦИЯ ПЕРЕКЛЮЧЕНИЯ ВКЛАДОК =============
+
+function showTab(tabName) {
+    console.log(`🔄 Переключаем на вкладку: ${tabName}`);
+    
+    // Убираем все активные классы
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    // Включаем нужную вкладку
+    const targetTab = document.getElementById(`${tabName}-tab`);
+    if (targetTab) {
+        targetTab.classList.add('active');
+        console.log(`✅ Активирована вкладка: ${tabName}-tab`);
+    } else {
+        console.error(`❌ Вкладка ${tabName}-tab не найдена`);
+    }
+    
+    // Включаем кнопку вкладки если есть
+    const tabButton = document.querySelector(`[onclick="switchTab('${tabName}')"]`) ||
+                     document.querySelector(`[data-tab="${tabName}"]`);
+    if (tabButton) {
+        tabButton.classList.add('active');
+    }
+    
+    // Сохраняем в localStorage
+    localStorage.setItem('activeTab', tabName);
+}
+
+// Запускаем инициализацию
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('📄 DOM загружен, запускаем инициализацию через 1 секунду...');
+    setTimeout(initializeApp, 1000);
+});
 
         // Функция проверки статуса автопоиска
         function checkAutoSearchStatus() {
@@ -4418,30 +4955,7 @@ function loadAutoSearchGroups() {
     console.log('✅ Группы автопоиска отображены');
 }
 
-// ДОБАВЬ эту функцию для загрузки сохраненных групп:
-function loadSavedAutoSearchGroups() {
-    try {
-        const saved = localStorage.getItem('message_hunter_autosearch_groups');
-        if (!saved) {
-            console.log('📭 Нет сохраненных групп автопоиска');
-            return;
-        }
-        
-        const data = JSON.parse(saved);
-        const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-        
-        if (data.timestamp > weekAgo && data.groups && Array.isArray(data.groups)) {
-            autoSearchGroups = data.groups.slice();
-            console.log(`✅ Восстановлены группы автопоиска: ${autoSearchGroups.length}`);
-        } else {
-            console.log('⏰ Сохраненные группы автопоиска устарели');
-            autoSearchGroups = [];
-        }
-    } catch (e) {
-        console.error('❌ Ошибка загрузки групп автопоиска:', e);
-        autoSearchGroups = [];
-    }
-}
+
 
 
 
@@ -5021,37 +5535,349 @@ function updateAutoSearchGroupsDisplay() {
     });
 }
 
-// 2. ИЗМЕНИТЬ существующую функцию displayGroups (найди и замени):
 
 
-
-function displayGroups() {
-    const container = document.getElementById('groupsContainer');
+function displayGroups(groups) {
+    console.log(`📋 Отображаю ${groups.length} групп`);
     
-    if (allGroups.length === 0) {
-        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Группы не найдены</div>';
+    // ОТЛАДКА: показываем первые 3 группы
+    console.log('🔍 ОТЛАДКА первых 3 групп:');
+    groups.slice(0, 3).forEach((group, i) => {
+        console.log(`  ${i + 1}. ID: "${group.id}", Title: "${group.title}"`);
+    });
+    
+    // Для обычного поиска
+    const groupsList = document.getElementById('groups-list');
+    if (groupsList) {
+        groupsList.innerHTML = groups.map(group => `
+            <div class="group-item">
+                <label class="group-label">
+                    <input type="checkbox" name="groups" value="${group.id}" 
+                           onchange="saveGroupSelection('search')">
+                    <span class="group-title">${group.title}</span>
+                    <small class="group-info">${group.members_count} участников</small>
+                </label>
+            </div>
+        `).join('');
+        console.log('✅ Группы для обычного поиска отображены');
+    }
+    
+    // Для автопоиска  
+    const autoSearchGroupsList = document.getElementById('autosearch-groups-list');
+    if (autoSearchGroupsList) {
+        const autoSearchHTML = groups.map(group => `
+            <div class="group-item">
+                <label class="group-label">
+                    <input type="checkbox" name="autosearch-groups" value="${group.id}" 
+                           onchange="saveGroupSelection('autosearch'); updateSelectedGroupsCount();">
+                    <span class="group-title">${group.title}</span>
+                    <small class="group-info">${group.members_count} участников</small>
+                </label>
+            </div>
+        `).join('');
+        
+        autoSearchGroupsList.innerHTML = autoSearchHTML;
+        console.log('✅ Группы автопоиска отображены');
+        
+        // ОТЛАДКА: проверяем что чекбоксы созданы
+        setTimeout(() => {
+            const createdCheckboxes = document.querySelectorAll('input[name="autosearch-groups"]');
+            console.log(`🔍 Создано ${createdCheckboxes.length} чекбоксов автопоиска`);
+            
+            // Показываем первые 3 созданных чекбокса
+            console.log('🔍 Первые 3 созданных чекбокса:');
+            Array.from(createdCheckboxes).slice(0, 3).forEach((cb, i) => {
+                console.log(`  ${i + 1}. value="${cb.value}"`);
+            });
+        }, 100);
+        
+    } else {
+        console.error('❌ Элемент autosearch-groups-list не найден!');
+    }
+    
+    // Для рассылки
+    const broadcastGroupsList = document.getElementById('broadcast-groups-list');
+    if (broadcastGroupsList) {
+        broadcastGroupsList.innerHTML = groups.map(group => `
+            <div class="group-item">
+                <label class="group-label">
+                    <input type="checkbox" name="broadcast-groups" value="${group.id}" 
+                           onchange="saveGroupSelection('broadcast'); updateSelectedGroupsCount();">
+                    <span class="group-title">${group.title}</span>
+                    <small class="group-info">${group.members_count} участников</small>
+                </label>
+            </div>
+        `).join('');
+        console.log('✅ Группы для рассылки отображены');
+    }
+    
+    console.log('✅ Все группы отображены успешно');
+}
+
+function restoreGroupSelections() {
+    console.log('🔄 Восстанавливаем выборы групп...');
+    
+    // ЗАДЕРЖКА для того чтобы DOM успел обновиться
+    setTimeout(() => {
+        console.log('🔄 Начинаем восстановление после задержки...');
+        
+        // Восстанавливаем выборы для автопоиска
+        try {
+            const savedAutoSearch = localStorage.getItem('message_hunter_autosearch_groups');
+            console.log('🔍 RAW данные автопоиска:', savedAutoSearch);
+            
+            if (savedAutoSearch) {
+                let autoSearchGroups;
+                
+                try {
+                    const parsed = JSON.parse(savedAutoSearch);
+                    console.log('🔍 Parsed данные:', parsed, 'Тип:', typeof parsed);
+                    
+                    if (Array.isArray(parsed)) {
+                        autoSearchGroups = parsed;
+                    } else if (parsed && typeof parsed === 'object') {
+                        autoSearchGroups = parsed.groups || parsed.selected_groups || Object.keys(parsed);
+                    } else {
+                        autoSearchGroups = String(parsed).split(',').map(s => s.trim()).filter(s => s);
+                    }
+                } catch (parseError) {
+                    console.log('🔍 Не JSON, пробуем как строку:', parseError);
+                    autoSearchGroups = savedAutoSearch.split(',').map(s => s.trim()).filter(s => s);
+                }
+                
+                console.log('🔍 Финальные группы автопоиска:', autoSearchGroups);
+                
+                if (Array.isArray(autoSearchGroups) && autoSearchGroups.length > 0) {
+                    console.log(`🔄 Восстанавливаем выбор автопоиска: ${autoSearchGroups.length} групп`);
+                    
+                    // ОТЛАДКА: проверяем какие чекбоксы доступны
+                    const availableCheckboxes = document.querySelectorAll('input[name="autosearch-groups"]');
+                    console.log(`🔍 Доступно чекбоксов: ${availableCheckboxes.length}`);
+                    
+                    if (availableCheckboxes.length === 0) {
+                        console.error('❌ НЕТ чекбоксов автопоиска! Проверяем HTML...');
+                        
+                        // Ищем контейнер
+                        const container = document.getElementById('autosearch-groups-list');
+                        if (container) {
+                            console.log('🔍 Контейнер найден, содержимое:', container.innerHTML.substring(0, 200) + '...');
+                        } else {
+                            console.error('❌ Контейнер autosearch-groups-list не найден!');
+                        }
+                        return;
+                    }
+                    
+                    // Показываем доступные значения
+                    console.log('🔍 Доступные значения чекбоксов:');
+                    Array.from(availableCheckboxes).slice(0, 3).forEach((cb, i) => {
+                        console.log(`  ${i + 1}. "${cb.value}"`);
+                    });
+                    
+                    let restoredCount = 0;
+                    autoSearchGroups.forEach(groupId => {
+                        const checkbox = document.querySelector(`input[name="autosearch-groups"][value="${groupId}"]`);
+                        if (checkbox) {
+                            checkbox.checked = true;
+                            restoredCount++;
+                            console.log(`✅ Восстановлен чекбокс автопоиска для группы ${groupId}`);
+                        } else {
+                            console.log(`❌ Чекбокс для группы ${groupId} не найден`);
+                        }
+                    });
+                    
+                    console.log(`📊 Восстановлено ${restoredCount} из ${autoSearchGroups.length} групп автопоиска`);
+                }
+            }
+        } catch (e) {
+            console.error('❌ Ошибка восстановления автопоиска:', e);
+        }
+        
+        // Восстанавливаем другие типы групп...
+        restoreOtherGroupTypes();
+        
+        // Обновляем счетчики
+        updateSelectedGroupsCount();
+        
+    }, 500); // Задержка 500мс
+}
+
+function restoreOtherGroupTypes() {
+    // Восстанавливаем выборы для обычного поиска
+    try {
+        const savedSearch = localStorage.getItem('message_hunter_search_groups');
+        if (savedSearch) {
+            const searchGroups = JSON.parse(savedSearch);
+            if (Array.isArray(searchGroups)) {
+                console.log(`🔄 Восстанавливаем выбор поиска: ${searchGroups.length} групп`);
+                
+                searchGroups.forEach(groupId => {
+                    const checkbox = document.querySelector(`input[name="groups"][value="${groupId}"]`);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+                });
+            }
+        }
+    } catch (e) {
+        console.error('❌ Ошибка восстановления поиска:', e);
+        localStorage.removeItem('message_hunter_search_groups');
+    }
+    
+    // Восстанавливаем выборы для рассылки
+    try {
+        const savedBroadcast = localStorage.getItem('message_hunter_broadcast_groups');
+        if (savedBroadcast) {
+            const broadcastGroups = JSON.parse(savedBroadcast);
+            if (Array.isArray(broadcastGroups)) {
+                console.log(`🔄 Восстанавливаем выбор рассылки: ${broadcastGroups.length} групп`);
+                
+                broadcastGroups.forEach(groupId => {
+                    const checkbox = document.querySelector(`input[name="broadcast-groups"][value="${groupId}"]`);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+                });
+            }
+        }
+    } catch (e) {
+        console.error('❌ Ошибка восстановления рассылки:', e);
+        localStorage.removeItem('message_hunter_broadcast_groups');
+    }
+}
+
+function debugAutoSearchElements() {
+    console.log('🔍 === ОТЛАДКА ЭЛЕМЕНТОВ АВТОПОИСКА ===');
+    
+    // Проверяем правильный контейнер
+    const container = document.getElementById('autoSearchGroupsContainer');
+    console.log('🔍 Контейнер autoSearchGroupsContainer:', container ? 'НАЙДЕН' : 'НЕ НАЙДЕН');
+    
+    if (container) {
+        console.log('🔍 Содержимое контейнера (первые 300 символов):', container.innerHTML.substring(0, 300));
+        
+        // Проверяем чекбоксы
+        const checkboxes = container.querySelectorAll('input[name="autosearch-groups"]');
+        console.log(`🔍 Чекбоксов в контейнере: ${checkboxes.length}`);
+        
+        if (checkboxes.length > 0) {
+            console.log('🔍 Первые 3 чекбокса:');
+            Array.from(checkboxes).slice(0, 3).forEach((cb, i) => {
+                console.log(`  ${i + 1}. name="${cb.name}", value="${cb.value}", checked=${cb.checked}`);
+            });
+        }
+    } else {
+        // Ищем все возможные контейнеры в автопоиске
+        const autoTab = document.getElementById('autosearch-tab');
+        if (autoTab) {
+            console.log('🔍 Ищем все контейнеры в autosearch-tab...');
+            const allDivs = autoTab.querySelectorAll('div[id]');
+            console.log(`🔍 Найдено div элементов с ID: ${allDivs.length}`);
+            
+            allDivs.forEach(div => {
+                console.log(`  - ${div.id}: ${div.className || 'без класса'}`);
+            });
+        }
+    }
+    
+    // Проверяем все чекбоксы автопоиска на странице
+    const allAutoCheckboxes = document.querySelectorAll('input[name="autosearch-groups"]');
+    console.log(`🔍 Всего чекбоксов автопоиска на странице: ${allAutoCheckboxes.length}`);
+    
+    console.log('🔍 === КОНЕЦ ОТЛАДКИ ===');
+}
+
+function forceCreateAutoSearchGroups() {
+    console.log('🔄 ПРИНУДИТЕЛЬНОЕ создание групп автопоиска...');
+    
+    const container = document.getElementById('autoSearchGroupsContainer');
+    if (!container) {
+        console.error('❌ Контейнер autoSearchGroupsContainer не найден!');
         return;
     }
     
-    // ЗАГРУЖАЕМ СОХРАНЕННЫЕ ГРУППЫ
-    loadSelectedGroups();
+    // Получаем группы из кэша
+    const cached = loadGroupsCache();
+    if (!cached || cached.length === 0) {
+        console.error('❌ Нет групп в кэше для отображения');
+        container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">❌ Сначала загрузите группы на вкладке "Поиск"</div>';
+        return;
+    }
     
-    container.innerHTML = allGroups.map(group => `
-        <div class="group-item">
-            <input type="checkbox" 
-                   class="group-checkbox" 
-                   id="group_${group.id}"
-                   ${selectedGroups.includes(group.id) ? 'checked' : ''}
-                   onchange="toggleGroup('${group.id}')">
-            <label for="group_${group.id}">
-                <div class="group-title">${group.title}</div>
-                <div class="group-info">👥 ${group.members_count.toLocaleString()} участников</div>
-                <div class="group-status">${group.status}</div>
+    console.log(`📋 Создаем группы автопоиска из ${cached.length} групп`);
+    
+    // Создаем HTML
+    const html = cached.map(group => `
+        <div class="group-item" style="padding: 8px; border: 1px solid #ddd; margin: 5px 0; border-radius: 5px;">
+            <label style="display: flex; align-items: center; cursor: pointer;">
+                <input type="checkbox" 
+                    name="autosearch-groups"
+                    value="${group.id}"
+                    style="margin-right: 10px;"
+                    onchange="saveGroupSelection('autosearch'); updateSelectedGroupsCount();">
+                <div>
+                    <div style="font-weight: 500;">${group.title}</div>
+                    <small style="color: #666;">${group.members_count} участников</small>
+                </div>
             </label>
         </div>
     `).join('');
     
-    console.log(`✅ Отображено ${allGroups.length} групп, выбрано ${selectedGroups.length}`);
+    container.innerHTML = html;
+    
+    // Проверяем результат
+    setTimeout(() => {
+        const checkboxes = container.querySelectorAll('input[name="autosearch-groups"]');
+        console.log(`✅ ПРИНУДИТЕЛЬНО создано ${checkboxes.length} чекбоксов автопоиска`);
+        
+        if (checkboxes.length > 0) {
+            // Восстанавливаем сохраненные выборы
+            restoreGroupSelections();
+        }
+    }, 100);
+}
+
+function updateSelectedGroupsCount() {
+    // Подсчет для автопоиска - используем правильный селектор
+    const autoSearchCheckboxes = document.querySelectorAll('input[name="autosearch-groups"]:checked');
+    const autoSearchCount = autoSearchCheckboxes.length;
+    
+    // Ищем разные варианты счетчика автопоиска
+    let autoSearchCounter = document.getElementById('autosearch-selected-count') ||
+                           document.getElementById('autoSelectedCount') ||
+                           document.querySelector('#autosearch-tab .selected-count');
+    
+    if (autoSearchCounter) {
+        if (autoSearchCounter.id === 'autoSelectedCount') {
+            // Это старый формат
+            autoSearchCounter.textContent = `Выбрано: ${autoSearchCount} групп`;
+        } else {
+            // Это новый формат
+            autoSearchCounter.textContent = autoSearchCount;
+        }
+        console.log(`📊 Обновлен счетчик автопоиска: ${autoSearchCount}`);
+    } else {
+        console.log('❌ Счетчик автопоиска не найден');
+    }
+    
+    // Подсчет для рассылки
+    const broadcastCheckboxes = document.querySelectorAll('input[name="broadcast-groups"]:checked');
+    const broadcastCount = broadcastCheckboxes.length;
+    
+    const broadcastCounter = document.getElementById('broadcast-selected-count');
+    if (broadcastCounter) {
+        broadcastCounter.textContent = broadcastCount;
+        console.log(`📊 Обновлен счетчик рассылки: ${broadcastCount}`);
+    }
+    
+    // Подсчет для обычного поиска
+    const searchCheckboxes = document.querySelectorAll('input[name="groups"]:checked');
+    const searchCount = searchCheckboxes.length;
+    
+    const searchCounter = document.getElementById('search-selected-count');
+    if (searchCounter) {
+        searchCounter.textContent = searchCount;
+        console.log(`📊 Обновлен счетчик поиска: ${searchCount}`);
+    }
 }
 
 // 2. В функции toggleGroup добавь сохранение:
@@ -5202,69 +6028,98 @@ function saveAutoSearchResults() {
     }
 }
 
-// 2. Функция загрузки сохраненных результатов
-// В templates/dashboard.html исправь функцию loadSavedAutoSearchResults:
 
-// ЗАМЕНИ функцию loadSavedAutoSearchResults на эту:
 
 function loadSavedAutoSearchResults() {
-    console.log('🔍 НАЧИНАЕМ восстановление результатов автопоиска...');
+    console.log('🔄 Загружаем сохраненные результаты автопоиска...');
     
     try {
-        // ОТЛАДКА
-        debugLocalStorage();
-        
-        let saved = localStorage.getItem('test_autosearch');
-        let keyUsed = 'test_autosearch';
-        
-        if (!saved) {
-            saved = localStorage.getItem('message_hunter_autosearch_results');
-            keyUsed = 'message_hunter_autosearch_results';
-        }
-        
-        if (!saved) {
-            console.log('📭 НЕТ сохраненных результатов автопоиска');
-            return;
-        }
-        
-        console.log(`✅ НАЙДЕНЫ данные в ключе: ${keyUsed}`);
-        console.log('📝 Сырые данные:', saved.substring(0, 200) + '...');
-        
-        const data = JSON.parse(saved);
-        console.log('📊 Распарсенные данные:', data);
-        
-        let messages = [];
-        
-        // ПРОВЕРЯЕМ ВСЕ ВОЗМОЖНЫЕ ФОРМАТЫ
-        if (data.messages && Array.isArray(data.messages)) {
-            messages = data.messages;
-            console.log('✅ Формат: объект с полем messages');
-        } else if (Array.isArray(data)) {
-            messages = data;
-            console.log('✅ Формат: прямой массив');
-        } else {
-            console.log('❌ Неизвестный формат данных');
-            return;
-        }
-        
-        console.log(`📊 Найдено сообщений: ${messages.length}`);
-        
-        if (messages.length > 0) {
-            autoFoundMessages = messages.slice();
-            console.log(`✅ УСТАНОВЛЕНО autoFoundMessages: ${autoFoundMessages.length}`);
+        // Загружаем результаты
+        const savedResults = localStorage.getItem('message_hunter_autosearch_results');
+        if (savedResults) {
+            const results = JSON.parse(savedResults);
+            console.log(`✅ Найдено ${results.length} сохраненных результатов`);
             
-            // ПРИНУДИТЕЛЬНО ПОКАЗЫВАЕМ РЕЗУЛЬТАТЫ
+            const container = document.getElementById('autosearch-messages');
+            if (container && results.length > 0) {
+                container.innerHTML = results.map(result => `
+                    <div class="message-item" style="border-left: 3px solid #28a745;">
+                        <div class="message-header">
+                            <span class="author">@${result.author}</span>
+                            <span class="chat">${result.chat}</span>
+                            <span class="timestamp">${formatTimestamp(result.timestamp)}</span>
+                            <span class="new-badge">СОХРАНЕН</span>
+                        </div>
+                        <div class="message-text">${result.text}</div>
+                        <div class="matched-keywords">
+                            Ключевые слова: ${result.matched_words.join(', ')}
+                        </div>
+                    </div>
+                `).join('');
+                
+                // Показываем статистику
+                const statsElement = document.getElementById('autosearch-stats');
+                if (statsElement) {
+                    statsElement.innerHTML = `📊 Всего найдено: ${results.length} сообщений`;
+                }
+                
+                console.log(`✅ Отображено ${results.length} сохраненных результатов`);
+            }
+        }
+        
+        // Загружаем сохраненные группы автопоиска
+        const savedGroups = localStorage.getItem('message_hunter_autosearch_groups');
+        if (savedGroups) {
+            const groupIds = JSON.parse(savedGroups);
+            console.log(`✅ Восстановлены группы автопоиска: ${groupIds.length}`);
+            
+            // ВАЖНО: устанавливаем чекбоксы ПОСЛЕ того как группы отображены
             setTimeout(() => {
-                console.log('🎯 ПРИНУДИТЕЛЬНОЕ отображение через 500мс...');
-                forceDisplayAutoResults();
-            }, 500);
-            
-        } else {
-            console.log('📭 Массив сообщений пустой');
+                groupIds.forEach(groupId => {
+                    const checkbox = document.querySelector(`input[name="autosearch-groups"][value="${groupId}"]`);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                        console.log(`✅ Восстановлен чекбокс для группы ${groupId}`);
+                    } else {
+                        console.log(`❌ Чекбокс для группы ${groupId} не найден`);
+                    }
+                });
+                
+                // Обновляем счетчик
+                updateSelectedGroupsCount();
+            }, 100);
         }
         
+        // Загружаем сохраненные ключевые слова
+        const savedKeywords = localStorage.getItem('message_hunter_autosearch_keywords');
+        if (savedKeywords) {
+            const keywords = JSON.parse(savedKeywords);
+            console.log(`✅ Восстановлены ключевые слова: ${keywords.join(', ')}`);
+            
+            const keywordsInput = document.getElementById('autosearch-keywords');
+            if (keywordsInput) {
+                keywordsInput.value = keywords.join(', ');
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ Ошибка загрузки сохраненных данных:', error);
+    }
+}
+
+// Вспомогательная функция форматирования времени
+function formatTimestamp(timestamp) {
+    try {
+        const date = new Date(timestamp);
+        return date.toLocaleString('ru-RU', {
+            day: '2-digit',
+            month: '2-digit', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     } catch (e) {
-        console.error('❌ ОШИБКА восстановления:', e);
+        return timestamp;
     }
 }
 
