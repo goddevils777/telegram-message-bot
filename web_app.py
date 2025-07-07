@@ -163,8 +163,10 @@ TASKS_FILE = 'broadcast_tasks.json'
 
 def save_tasks_to_file():
     """Сохраняет задачи в файл"""
+    global broadcast_tasks  # ДОБАВЬ ЭТУ СТРОКУ
+    
     try:
-        # Конвертируем datetime объекты в строки для JSON
+        # Преобразуем datetime в строки для JSON
         tasks_to_save = {}
         for task_id, task in broadcast_tasks.items():
             task_copy = task.copy()
@@ -172,7 +174,7 @@ def save_tasks_to_file():
                 task_copy['scheduled_time'] = task_copy['scheduled_time'].isoformat()
             if 'created_at' in task_copy:
                 task_copy['created_at'] = task_copy['created_at'].isoformat()
-            if 'completed_at' in task_copy:
+            if 'completed_at' in task_copy and task_copy['completed_at']:
                 task_copy['completed_at'] = task_copy['completed_at'].isoformat()
             tasks_to_save[task_id] = task_copy
         
@@ -186,7 +188,8 @@ def save_tasks_to_file():
 
 def load_tasks_from_file():
     """Загружает задачи из файла"""
-    global broadcast_tasks
+    global broadcast_tasks  # ДОБАВЬ ЭТУ СТРОКУ
+    
     try:
         if os.path.exists(TASKS_FILE):
             with open(TASKS_FILE, 'r', encoding='utf-8') as f:
@@ -204,15 +207,15 @@ def load_tasks_from_file():
                 broadcast_tasks[task_id] = task
             
             print(f"📋 Загружено {len(broadcast_tasks)} задач из файла")
+        else:
+            print("📭 Файл задач не найден, создаем пустой")
+            broadcast_tasks = {}
         
     except Exception as e:
         print(f"❌ Ошибка загрузки задач: {e}")
+        broadcast_tasks = {}  # ДОБАВЬ ЭТУ СТРОКУ
 
-# ДОБАВЬТЕ ЗАГРУЗКУ ПРИ СТАРТЕ ПРИЛОЖЕНИЯ (в конце файла):
-if __name__ == '__main__':
-    print("🚀 Запускаю Message Hunter...")
-    load_tasks_from_file()  # ← ДОБАВЬ ЭТУ СТРОКУ
-    # ... остальной код запуска ...
+
 
 # Создаем глобальный менеджер
 account_manager = MultiAccountManager()
@@ -593,61 +596,142 @@ def get_telegram_user_info():
 
 
 
+# НАЙДИ В web_app.py функцию get_groups и ЗАМЕНИ НА ЭТУ:
+
 @app.route('/get_groups', methods=['GET'])
 def get_groups():
-    """Получение групп пользователя"""
-    user_id = 'local_user'
-    
-    if not is_user_account_connected(user_id):
-        return jsonify({'error': 'Сначала добавьте API ключи'}), 403
-    
+    """Получение списка групп пользователя"""
     try:
-        # Проверяем кэш
-        cached_groups = load_groups_cache()
-        if cached_groups and len(cached_groups) > 0:
-            print(f"📋 Возвращаем {len(cached_groups)} групп из кэша")
+        print("📂 Запрос списка групп...")
+        
+        # Проверяем API ключи
+        global API_ID, API_HASH
+        if not API_ID or not API_HASH:
+            load_saved_api_keys()
+        
+        if not API_ID or not API_HASH:
+            print("❌ API ключи не настроены")
             return jsonify({
-                'success': True,
-                'groups': cached_groups
+                'success': False,
+                'error': 'Сначала настройте API ключи в настройках'
             })
         
-        print("🔄 Загружаем группы из Telegram...")
+        # Ищем файл сессии
+        session_file = None
         
-        def run_get_groups():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        # Проверяем user_local.session
+        if os.path.exists('user_local.session'):
+            session_file = 'user_local'
+            print("✅ Найден user_local.session")
+        
+        # Проверяем папку sessions
+        elif os.path.exists('sessions'):
+            for file in os.listdir('sessions'):
+                if file.endswith('.session'):
+                    session_file = os.path.join('sessions', file.replace('.session', ''))
+                    print(f"✅ Найден файл сессии: {file}")
+                    break
+        
+        if not session_file:
+            print("❌ Файл сессии не найден")
+            return jsonify({
+                'success': False,
+                'error': 'Сессия не найдена. Создайте сессию через "Управление аккаунтами"'
+            })
+        
+        # Загружаем группы в отдельном потоке
+        def load_groups_sync():
             try:
-                user_client = get_user_client(user_id)
-                if not user_client:
-                    print("❌ Не удалось создать клиент")
-                    return []
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
                 
-                print("🚀 Запускаем получение групп...")
-                groups = loop.run_until_complete(get_all_user_groups(user_client))
-                
-                if len(groups) > 0:
-                    save_groups_cache(groups)
-                    print(f"💾 Сохранено {len(groups)} групп в кэш")
-                
-                return groups
-                
+                try:
+                    return loop.run_until_complete(get_user_groups_async(session_file))
+                finally:
+                    loop.close()
             except Exception as e:
-                print(f"❌ Ошибка в потоке: {e}")
-                return []
-            finally:
-                loop.close()
+                print(f"❌ Ошибка в потоке загрузки групп: {e}")
+                return None
         
-        future = executor.submit(run_get_groups)
-        groups = future.result(timeout=120)
+        # Выполняем в отдельном потоке с таймаутом
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(load_groups_sync)
+            groups = future.result(timeout=30)  # 30 секунд таймаут
+        
+        if groups is None:
+            return jsonify({
+                'success': False,
+                'error': 'Ошибка загрузки групп. Проверьте сессию.'
+            })
+        
+        print(f"✅ Загружено {len(groups)} групп")
         
         return jsonify({
             'success': True,
             'groups': groups
         })
         
+    except concurrent.futures.TimeoutError:
+        print("⏰ Таймаут загрузки групп")
+        return jsonify({
+            'success': False,
+            'error': 'Превышено время ожидания. Попробуйте еще раз.'
+        })
     except Exception as e:
-        print(f"❌ Общая ошибка: {e}")
-        return jsonify({'error': f'Ошибка: {str(e)}'}), 500
+        print(f"❌ Общая ошибка загрузки групп: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Ошибка: {str(e)}'
+        })
+
+# ДОБАВЬ ЭТУ НОВУЮ АСИНХРОННУЮ ФУНКЦИЮ:
+async def get_user_groups_async(session_file):
+    """Асинхронная загрузка групп пользователя"""
+    try:
+        print(f"🔄 Подключаемся к Telegram с сессией: {session_file}")
+        
+        client = Client(session_file, api_id=API_ID, api_hash=API_HASH)
+        
+        await client.start()
+        print("✅ Подключение к Telegram успешно")
+        
+        groups = []
+        group_count = 0
+        
+        print("📋 Сканируем диалоги...")
+        
+        async for dialog in client.get_dialogs():
+            if dialog.chat.type.name in ["GROUP", "SUPERGROUP"]:
+                try:
+                    groups.append({
+                        'id': str(dialog.chat.id),
+                        'title': dialog.chat.title or 'Без названия',
+                        'members_count': getattr(dialog.chat, 'members_count', 0)
+                    })
+                    group_count += 1
+                    
+                    # Логируем прогресс каждые 10 групп
+                    if group_count % 10 == 0:
+                        print(f"📂 Найдено групп: {group_count}")
+                        
+                except Exception as e:
+                    print(f"⚠️ Ошибка обработки группы {dialog.chat.title}: {e}")
+                    continue
+        
+        await client.stop()
+        print(f"✅ Завершено. Всего групп: {len(groups)}")
+        
+        return groups
+        
+    except Exception as e:
+        print(f"❌ Ошибка в get_user_groups_async: {e}")
+        try:
+            if 'client' in locals():
+                await client.stop()
+        except:
+            pass
+        return None
 
 # История поиска
 @app.route('/search', methods=['POST'])
@@ -3445,7 +3529,7 @@ def get_auto_search_status():
         'keywords_count': len(auto_search_keywords)
     })
 
-# Добавь в конец файла перед if __name__ == '__main__':
+
 def cleanup_auto_search():
     """Очистка ресурсов автопоиска при завершении"""
     global auto_search_active, auto_search_stop_event
@@ -3563,9 +3647,14 @@ def restart_user_client(user_id='local_user'):
 
 if __name__ == '__main__':
     print("🚀 Запускаю Message Hunter...")
-    load_tasks_from_file()  # ← ДОБАВЬ ЭТУ СТРОКУ ЕСЛИ ЕЁ НЕТ
-    print("📍 Доступные маршруты:")
-    for rule in app.url_map.iter_rules():
-        print(f"  {rule.rule} - {list(rule.methods)}")
-    print("🌐 Откройте: http://localhost:8000")
-    app.run(debug=True, port=8000, host='0.0.0.0')
+    
+    # Инициализируем broadcast_tasks ПЕРЕД загрузкой
+    broadcast_tasks = {}
+    load_tasks_from_file()
+    
+    try:
+        app.run(host='0.0.0.0', port=8000, debug=False)
+    except KeyboardInterrupt:
+        print("\n👋 Остановка сервера...")
+    except Exception as e:
+        print(f"❌ Ошибка запуска сервера: {e}")

@@ -1584,8 +1584,7 @@ async function loadGroups() {
         if (cached && cached.length > 0) {
             console.log('📋 Найден валидный кэш групп');
             
-            // ИСПРАВЛЕНО: сначала отображаем группы
-            displayGroups(cached);
+         
             
             // ДОБАВЛЯЕМ ОТЛАДКУ ЧЕРЕЗ 1 СЕКУНДУ
             setTimeout(() => {
@@ -1611,8 +1610,6 @@ async function loadGroups() {
             // Сохраняем в кэш
             saveGroupsCache(data.groups);
             
-            // Отображаем группы
-            displayGroups(data.groups);
             
             // ДОБАВЛЯЕМ ОТЛАДКУ ЧЕРЕЗ 1 СЕКУНДУ
             setTimeout(() => {
@@ -1736,8 +1733,7 @@ async function refreshGroups() {
             // Сохраняем в кэш
             saveGroupsCache(data.groups);
             
-            // Отображаем группы
-            displayGroups(data.groups);
+           
             
             // Восстанавливаем выборы
             restoreGroupSelections();
@@ -1972,101 +1968,90 @@ function updateSelectedGroupsCount() {
         }
         
 
-// ============= ИСПРАВЛЕННАЯ ФУНКЦИЯ displayGroups С ПРАВИЛЬНЫМИ ID =============
-
 function displayGroups(groups) {
-    console.log(`📋 Отображаю ${groups.length} групп`);
+    console.log(`📋 Отображаем ${groups.length} групп`);
     
-    // ОТЛАДКА: показываем первые 3 группы
-    console.log('🔍 ОТЛАДКА первых 3 групп:');
-    groups.slice(0, 3).forEach((group, i) => {
-        console.log(`  ${i + 1}. ID: "${group.id}", Title: "${group.title}"`);
-    });
-    
-    // Для обычного поиска
-    const groupsList = document.getElementById('groups-list');
-    if (groupsList) {
-        groupsList.innerHTML = groups.map(group => `
+    // Основной поиск
+    const mainContainer = document.getElementById('groupsContainer');
+    if (mainContainer) {
+        const groupsHTML = groups.map(group => `
             <div class="group-item">
-                <label class="group-label">
-                    <input type="checkbox" name="groups" value="${group.id}" 
-                           onchange="saveGroupSelection('search')">
-                    <span class="group-title">${group.title}</span>
-                    <small class="group-info">${group.members_count} участников</small>
+                <label>
+                    <input type="checkbox" value="${group.id}" onchange="updateSelectedGroups()">
+                    <span class="group-name">${group.title}</span>
+                    <span class="group-info">${group.members_count || 0} участников</span>
                 </label>
             </div>
         `).join('');
-        console.log('✅ Группы для обычного поиска отображены');
+        mainContainer.innerHTML = groupsHTML;
     }
     
-    // ДЛЯ АВТОПОИСКА - ИСПОЛЬЗУЕМ ПРАВИЛЬНЫЙ ID КОНТЕЙНЕРА
-    const autoSearchGroupsList = document.getElementById('autoSearchGroupsContainer');
-    if (autoSearchGroupsList) {
-        const autoSearchHTML = groups.map(group => `
+    // Автопоиск
+    const autoContainer = document.getElementById('autoSearchGroupsContainer');
+    if (autoContainer) {
+        const autoHTML = groups.map(group => `
             <div class="group-item">
-                <input type="checkbox" 
-                    class="group-checkbox" 
-                    name="autosearch-groups"
-                    value="${group.id}"
-                    id="auto_group_${group.id}"
-                    onchange="saveGroupSelection('autosearch'); updateSelectedGroupsCount();">
-                <label for="auto_group_${group.id}" class="group-label">
-                    <span class="group-title">${group.title}</span>
-                    <small class="group-info">${group.members_count} участников</small>
+                <label>
+                    <input type="checkbox" value="${group.id}" onchange="updateAutoSearchGroups()">
+                    <span class="group-name">${group.title}</span>
+                    <span class="group-info">${group.members_count || 0} участников</span>
                 </label>
             </div>
         `).join('');
-        
-        autoSearchGroupsList.innerHTML = autoSearchHTML;
-        console.log('✅ Группы автопоиска отображены в autoSearchGroupsContainer');
-        
-        // ОТЛАДКА: проверяем что чекбоксы созданы
-        setTimeout(() => {
-            const createdCheckboxes = document.querySelectorAll('input[name="autosearch-groups"]');
-            console.log(`🔍 Создано ${createdCheckboxes.length} чекбоксов автопоиска`);
-            
-            // Показываем первые 3 созданных чекбокса
-            console.log('🔍 Первые 3 созданных чекбокса:');
-            Array.from(createdCheckboxes).slice(0, 3).forEach((cb, i) => {
-                console.log(`  ${i + 1}. name="${cb.name}", value="${cb.value}"`);
-            });
-        }, 100);
-        
-    } else {
-        console.error('❌ Элемент autoSearchGroupsContainer не найден!');
-        
-        // ПОПРОБУЕМ НАЙТИ АЛЬТЕРНАТИВНЫЕ КОНТЕЙНЕРЫ
-        const alternatives = [
-            'autosearch-groups-list',
-            'autoSearchGroups', 
-            'auto-groups-container',
-            'groups-container-auto'
-        ];
-        
-        console.log('🔍 Ищем альтернативные контейнеры...');
-        alternatives.forEach(id => {
-            const element = document.getElementById(id);
-            console.log(`  ${id}: ${element ? 'НАЙДЕН' : 'НЕ НАЙДЕН'}`);
-        });
+        autoContainer.innerHTML = autoHTML;
     }
+}
+
+// ДОБАВЬ ЭТУ НОВУЮ ФУНКЦИЮ:
+function restoreGroupSelections() {
+    console.log('🔄 Восстанавливаем выборы групп...');
     
-    // Для рассылки
-    const broadcastGroupsList = document.getElementById('broadcast-groups-list');
-    if (broadcastGroupsList) {
-        broadcastGroupsList.innerHTML = groups.map(group => `
-            <div class="group-item">
-                <label class="group-label">
-                    <input type="checkbox" name="broadcast-groups" value="${group.id}" 
-                           onchange="saveGroupSelection('broadcast'); updateSelectedGroupsCount();">
-                    <span class="group-title">${group.title}</span>
-                    <small class="group-info">${group.members_count} участников</small>
-                </label>
-            </div>
-        `).join('');
-        console.log('✅ Группы для рассылки отображены');
-    }
-    
-    console.log('✅ Все группы отображены успешно');
+    setTimeout(() => {
+        console.log('🔄 Начинаем восстановление после задержки...');
+        
+        // Восстанавливаем выборы для основного поиска
+        const savedGroups = localStorage.getItem('selectedGroups');
+        console.log('🔍 RAW данные основного поиска:', savedGroups);
+        
+        if (savedGroups) {
+            try {
+                const groupIds = JSON.parse(savedGroups);
+                groupIds.forEach(groupId => {
+                    const checkbox = document.querySelector(`#groupsContainer input[value="${groupId}"]`);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+                });
+                updateSelectedGroups();
+                console.log('✅ Восстановлены выборы основного поиска');
+            } catch (e) {
+                console.error('❌ Ошибка восстановления основного поиска:', e);
+            }
+        }
+        
+        // Восстанавливаем выборы для автопоиска
+        const savedAutoGroups = localStorage.getItem('autoSearchSelectedGroups');
+        console.log('🔍 RAW данные автопоиска:', savedAutoGroups);
+        
+        if (savedAutoGroups) {
+            try {
+                const groupIds = JSON.parse(savedAutoGroups);
+                groupIds.forEach(groupId => {
+                    const checkbox = document.querySelector(`#autoSearchGroupsContainer input[value="${groupId}"]`);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+                });
+                updateAutoSearchGroups();
+                console.log('✅ Восстановлены выборы автопоиска');
+            } catch (e) {
+                console.error('❌ Ошибка восстановления автопоиска:', e);
+            }
+        }
+        
+        updateAutoGroupsCount();
+        
+    }, 500); // Задержка 500мс
 }
         
 
@@ -2527,10 +2512,6 @@ function saveGroupSelection(type) {
             const resultsDiv = document.getElementById('results');
             console.log('📋 resultsDiv найден:', !!resultsDiv);
             
-            if (!resultsDiv) {
-                console.error('❌ Элемент results не найден!');
-                return;
-            }
             const messagesDiv = document.getElementById('messages');
             const countDiv = document.getElementById('resultsCount');
             
@@ -3242,7 +3223,7 @@ function saveGroupSelection(type) {
             // Показываем модальное окно настроек
             document.getElementById('apiKeysModal').style.display = 'block';
         }
-// ============= ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ФУНКЦИЯ initializeApp =============
+
 
 async function initializeApp() {
     console.log('🚀 Инициализация приложения...');
@@ -3555,8 +3536,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // ЕДИНСТВЕННЫЙ запуск через 1 секунду
-        setTimeout(initializeApp, 1000);
+ 
 
         function parseMessageDate(dateString) {
             // Парсим дату в формате "25.12.2024 14:30"
@@ -5526,93 +5506,8 @@ function updateGroupsDisplay() {
     updateSelectAllButton();
 }
 
-// Обновление отображения групп автопоиска  
-function updateAutoSearchGroupsDisplay() {
-    // Обновляем чекбоксы автопоиска
-    document.querySelectorAll('[id^="auto_group_"]').forEach(checkbox => {
-        const groupId = checkbox.id.replace('auto_group_', '');
-        checkbox.checked = autoSearchGroups.includes(groupId);
-    });
-}
 
 
-
-function displayGroups(groups) {
-    console.log(`📋 Отображаю ${groups.length} групп`);
-    
-    // ОТЛАДКА: показываем первые 3 группы
-    console.log('🔍 ОТЛАДКА первых 3 групп:');
-    groups.slice(0, 3).forEach((group, i) => {
-        console.log(`  ${i + 1}. ID: "${group.id}", Title: "${group.title}"`);
-    });
-    
-    // Для обычного поиска
-    const groupsList = document.getElementById('groups-list');
-    if (groupsList) {
-        groupsList.innerHTML = groups.map(group => `
-            <div class="group-item">
-                <label class="group-label">
-                    <input type="checkbox" name="groups" value="${group.id}" 
-                           onchange="saveGroupSelection('search')">
-                    <span class="group-title">${group.title}</span>
-                    <small class="group-info">${group.members_count} участников</small>
-                </label>
-            </div>
-        `).join('');
-        console.log('✅ Группы для обычного поиска отображены');
-    }
-    
-    // Для автопоиска  
-    const autoSearchGroupsList = document.getElementById('autosearch-groups-list');
-    if (autoSearchGroupsList) {
-        const autoSearchHTML = groups.map(group => `
-            <div class="group-item">
-                <label class="group-label">
-                    <input type="checkbox" name="autosearch-groups" value="${group.id}" 
-                           onchange="saveGroupSelection('autosearch'); updateSelectedGroupsCount();">
-                    <span class="group-title">${group.title}</span>
-                    <small class="group-info">${group.members_count} участников</small>
-                </label>
-            </div>
-        `).join('');
-        
-        autoSearchGroupsList.innerHTML = autoSearchHTML;
-        console.log('✅ Группы автопоиска отображены');
-        
-        // ОТЛАДКА: проверяем что чекбоксы созданы
-        setTimeout(() => {
-            const createdCheckboxes = document.querySelectorAll('input[name="autosearch-groups"]');
-            console.log(`🔍 Создано ${createdCheckboxes.length} чекбоксов автопоиска`);
-            
-            // Показываем первые 3 созданных чекбокса
-            console.log('🔍 Первые 3 созданных чекбокса:');
-            Array.from(createdCheckboxes).slice(0, 3).forEach((cb, i) => {
-                console.log(`  ${i + 1}. value="${cb.value}"`);
-            });
-        }, 100);
-        
-    } else {
-        console.error('❌ Элемент autosearch-groups-list не найден!');
-    }
-    
-    // Для рассылки
-    const broadcastGroupsList = document.getElementById('broadcast-groups-list');
-    if (broadcastGroupsList) {
-        broadcastGroupsList.innerHTML = groups.map(group => `
-            <div class="group-item">
-                <label class="group-label">
-                    <input type="checkbox" name="broadcast-groups" value="${group.id}" 
-                           onchange="saveGroupSelection('broadcast'); updateSelectedGroupsCount();">
-                    <span class="group-title">${group.title}</span>
-                    <small class="group-info">${group.members_count} участников</small>
-                </label>
-            </div>
-        `).join('');
-        console.log('✅ Группы для рассылки отображены');
-    }
-    
-    console.log('✅ Все группы отображены успешно');
-}
 
 function restoreGroupSelections() {
     console.log('🔄 Восстанавливаем выборы групп...');
@@ -5836,49 +5731,20 @@ function forceCreateAutoSearchGroups() {
     }, 100);
 }
 
-function updateSelectedGroupsCount() {
-    // Подсчет для автопоиска - используем правильный селектор
-    const autoSearchCheckboxes = document.querySelectorAll('input[name="autosearch-groups"]:checked');
-    const autoSearchCount = autoSearchCheckboxes.length;
-    
-    // Ищем разные варианты счетчика автопоиска
-    let autoSearchCounter = document.getElementById('autosearch-selected-count') ||
-                           document.getElementById('autoSelectedCount') ||
-                           document.querySelector('#autosearch-tab .selected-count');
-    
-    if (autoSearchCounter) {
-        if (autoSearchCounter.id === 'autoSelectedCount') {
-            // Это старый формат
-            autoSearchCounter.textContent = `Выбрано: ${autoSearchCount} групп`;
-        } else {
-            // Это новый формат
-            autoSearchCounter.textContent = autoSearchCount;
-        }
-        console.log(`📊 Обновлен счетчик автопоиска: ${autoSearchCount}`);
-    } else {
-        console.log('❌ Счетчик автопоиска не найден');
-    }
-    
-    // Подсчет для рассылки
-    const broadcastCheckboxes = document.querySelectorAll('input[name="broadcast-groups"]:checked');
-    const broadcastCount = broadcastCheckboxes.length;
-    
-    const broadcastCounter = document.getElementById('broadcast-selected-count');
-    if (broadcastCounter) {
-        broadcastCounter.textContent = broadcastCount;
-        console.log(`📊 Обновлен счетчик рассылки: ${broadcastCount}`);
-    }
-    
-    // Подсчет для обычного поиска
-    const searchCheckboxes = document.querySelectorAll('input[name="groups"]:checked');
-    const searchCount = searchCheckboxes.length;
-    
-    const searchCounter = document.getElementById('search-selected-count');
-    if (searchCounter) {
-        searchCounter.textContent = searchCount;
-        console.log(`📊 Обновлен счетчик поиска: ${searchCount}`);
+
+
+
+
+// ДОБАВЬ updateAutoGroupsCount:
+function updateAutoGroupsCount() {
+    const counter = document.getElementById('autoGroupsCount');
+    if (counter) {
+        counter.textContent = autoSearchGroups.length;
+        console.log('📊 Обновлен счетчик автопоиска:', autoSearchGroups.length);
     }
 }
+
+
 
 // 2. В функции toggleGroup добавь сохранение:
 function toggleGroup(groupId) {
@@ -6626,6 +6492,25 @@ function forceDisplayAutoResults() {
         
     }, 100);
 }
+function updateAutoSearchGroups() {
+    const checkboxes = document.querySelectorAll('#autoSearchGroupsContainer input:checked');
+    autoSearchGroups = Array.from(checkboxes).map(cb => cb.value);
+    
+    const counter = document.getElementById('autoSelectedCount');
+    if (counter) {
+        counter.textContent = `Выбрано: ${autoSearchGroups.length}`;
+    }
+}
+
+    function updateSelectedGroups() {
+        const checkboxes = document.querySelectorAll('#groupsContainer input:checked');
+        selectedGroups = Array.from(checkboxes).map(cb => cb.value);
+        
+        const counter = document.getElementById('selectedCount');
+        if (counter) {
+            counter.textContent = `Выбрано: ${selectedGroups.length}`;
+        }
+    }
     </script>
     
 </body>
