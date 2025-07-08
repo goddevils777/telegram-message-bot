@@ -809,15 +809,7 @@
                 </div>
             </div>
             
-            <!-- Список всех аккаунтов -->
-            <div style="background: #f8f9fa; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
-                <h3 style="color: #333; margin-bottom: 15px;">📋 Все аккаунты</h3>
-                <div class="groups-container" id="multiAccountsContainer" style="max-height: 400px;">
-                    <div style="text-align: center; padding: 20px; color: #666;">
-                        Загрузка аккаунтов...
-                    </div>
-                </div>
-            </div>
+       
 
             
             <!-- Добавление нового аккаунта -->
@@ -906,7 +898,7 @@
                 </div>
                 
                 <div class="search-controls">
-                    <button class="search-btn" id="searchBtn" onclick="performSearch()">
+                    <button class="search-btn" id="searchBtn" onclick="startSearch()">
                         🔍 Найти сообщения
                     </button>
                     <button class="stop-btn" id="stopBtn" onclick="stopSearch()">
@@ -1327,24 +1319,8 @@
     </div>
    <!-- 1. Базовые утилиты (первыми) -->
 <script src="/static/js/utils.js"></script>
-<script src="/static/js/ui-utils.js"></script>
-<script src="/static/js/data-manager.js"></script>
-<script src="/static/js/api-client.js"></script>
+<script src="/static/js/simple-search.js"></script>
 
-<!-- 2. Менеджеры основных функций -->
-<script src="/static/js/tab-manager.js"></script>
-<script src="/static/js/groups-manager.js"></script>
-<script src="/static/js/search-manager.js"></script>
-<script src="/static/js/account-manager.js"></script>
-
-<!-- 3. Специализированные менеджеры -->
-<script src="/static/js/autosearch-manager.js"></script>
-<script src="/static/js/broadcast-manager.js"></script>
-<script src="/static/js/history-manager.js"></script>
-<script src="/static/js/ai-manager.js"></script>
-
-<!-- 4. Главная инициализация (последней) -->
-<script src="/static/js/app-init.js"></script>
     
     <!-- Временная обратная совместимость - ОБНОВЛЕНО -->
     <script>

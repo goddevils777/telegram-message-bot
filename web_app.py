@@ -30,12 +30,13 @@ app.secret_key = "abc123xyz789randomd6d215bd18a5303bac88cbc4dcbab1d1"
 SEARCH_SETTINGS = {
     'messages_per_group': 5000,  # Количество сообщений на группу
     'max_results': 10000,          # Максимум результатов для показа
-    'pause_between_groups': 2,   # Пауза между группами (секунды)
+    'pause_between_groups': 7,   # Пауза между группами (секунды)
     'batch_size': 500           # Размер батча для обработки
 }
 # Добавьте после других настроек
 ACTIVE_SEARCHES = {}  # Словарь активных поисков
 SEARCH_LOCK = threading.Lock()
+SEARCH_PROGRESS = {}
 
 # Система множественных клиентов
 active_clients = {}  # Хранилище активных клиентов {account_name: client}
@@ -684,6 +685,19 @@ def get_groups():
             'success': False,
             'error': f'Ошибка: {str(e)}'
         })
+
+@app.route('/search_progress', methods=['GET'])
+def get_search_progress():
+    """Получение прогресса поиска"""
+    user_id = 'local_user'
+    progress = SEARCH_PROGRESS.get(user_id, {})
+    
+    return jsonify({
+        'current': progress.get('current', 0),
+        'total': progress.get('total', 0),
+        'current_group': progress.get('current_group', ''),
+        'finished': progress.get('finished', False)
+    })
 
 # ДОБАВЬ ЭТУ НОВУЮ АСИНХРОННУЮ ФУНКЦИЮ:
 async def get_user_groups_async(session_file):
@@ -3207,6 +3221,13 @@ async def search_with_account(client, account_name, keyword, groups, search_dept
         for group_id in groups:
             if group_id in available_groups:
                 chat = available_groups[group_id]
+                current_group_index = groups.index(group_id) + 1
+                SEARCH_PROGRESS['local_user'] = {
+                    'current': current_group_index,
+                    'total': len(groups),
+                    'current_group': available_groups[group_id].title if group_id in available_groups else f'Группа {group_id}',
+                    'finished': False
+                }
                 try:
                     print(f"[{account_name}] 📂 Поиск в: {chat.title}")
                     
@@ -3250,6 +3271,14 @@ async def search_with_account(client, account_name, keyword, groups, search_dept
         await client.stop()
         
         print(f"[{account_name}] 🎯 Итого найдено: {len(found_messages)} сообщений")
+
+        # Отмечаем завершение поиска
+        SEARCH_PROGRESS['local_user'] = {
+            'current': len(groups),
+            'total': len(groups),
+            'current_group': 'Поиск завершен',
+            'finished': True
+        }
         
         return {
             'messages': found_messages,
